@@ -7,16 +7,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(() => {
   return {
     server: {
-      port: 3002,
-      host: '0.0.0.0',
-      proxy: {
-        '/api-proxy': {
-          target: 'http://localhost:3333',
-          rewrite: (path) => path.replace(/^\/api-proxy/, ''),
-          changeOrigin: true,
-        },
-      },
-    },
+  port: 3002,
+  host: '0.0.0.0',
+},
     plugins: [
       react(),
       tailwindcss(),
