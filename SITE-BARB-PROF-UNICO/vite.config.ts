@@ -10,13 +10,6 @@ export default defineConfig({
     allowedHosts: [
       "noncognizant-milania-untamely.ngrok-free.dev"
     ],
-    proxy: {
-      '/profissionais': { target: 'http://localhost:3333', changeOrigin: true },
-      '/agendamentos':  { target: 'http://localhost:3333', changeOrigin: true },
-      '/configuracao':  { target: 'http://localhost:3333', changeOrigin: true },
-      '/servicos': { target: 'http://localhost:3333', changeOrigin: true },
-      '/categorias-servicos': { target: 'http://localhost:3333', changeOrigin: true },
-    },
   },
   plugins: [react(), tailwindcss()],
   resolve: {

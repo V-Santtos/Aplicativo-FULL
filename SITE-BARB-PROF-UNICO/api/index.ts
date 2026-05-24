@@ -5,10 +5,8 @@
 // Variável de ambiente esperada:
 //   VITE_API_BASE_URL=http://localhost:4000/api   (ou URL da VPS em produção)
 
-const API_BASE_URL =
-  ((import.meta as any)?.env?.VITE_API_BASE_URL as string)?.trim() ?? "";
-const ADMIN_API_TOKEN =
-  ((import.meta as any)?.env?.VITE_ADMIN_API_TOKEN as string | undefined)?.trim() ?? "";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+const ADMIN_API_TOKEN = (import.meta.env.VITE_ADMIN_API_TOKEN ?? "").trim();
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
 

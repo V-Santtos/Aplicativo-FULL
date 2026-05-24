@@ -17,7 +17,7 @@
     "@capacitor/core": "^8.3.4",
     "@fastify/cors": "^9.0.1",
     "dotenv": "^16.4.5",
-    "fastify": "^4.28.1",
+    "fastify": "^5.8.5",
     "framer-motion": "^12.38.0",
     "lucide-react": "0.552.0",
     "pg": "^8.13.1",

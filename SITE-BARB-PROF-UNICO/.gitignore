@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 # Added by code-review-graph
 .code-review-graph/
+.claude
 
 # Environment variables (never commit)
 .env
