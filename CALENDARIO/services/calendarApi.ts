@@ -1,9 +1,7 @@
 import type { Professional, Event, CreateEventRequest } from '../types';
 
-const API_BASE =
-  ((import.meta as any).env.VITE_CALENDAR_API_URL as string)?.replace(/\/+$/, '') ??
-  '/api-proxy';
-const ADMIN_API_TOKEN = ((import.meta as any).env.VITE_ADMIN_API_TOKEN as string | undefined)?.trim();
+const API_BASE = (import.meta.env.VITE_CALENDAR_API_URL ?? '/api-proxy').replace(/\/+$/, '');
+const ADMIN_API_TOKEN = (import.meta.env.VITE_ADMIN_API_TOKEN ?? '').trim();
 
 // ─── Tipos novos ──────────────────────────────────────────────────────────────
 
