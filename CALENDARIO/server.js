@@ -1449,6 +1449,59 @@ function buildServer() {
         }
       }
 
+      // ─── NOTIFICA O N8N (fire-and-forget) ─────────────────────────────────
+      // Se o n8n estiver fora do ar ou demorar, o agendamento continua valendo.
+      // Falhas são logadas mas não bloqueiam a resposta pro cliente.
+      const webhookUrl = process.env.N8N_AGENDAMENTO_WEBHOOK_URL;
+      if (webhookUrl) {
+        const agendamentoCriado = rows[0];
+        const payload = {
+          event: "agendamento.criado",
+          timestamp: new Date().toISOString(),
+          agendamento: {
+            id: agendamentoCriado.id,
+            cliente: agendamentoCriado.cliente,
+            telefone: agendamentoCriado.telefone,
+            telefone_whatsapp: telefoneWhatsApp || null,
+            profissional: agendamentoCriado.profissional,
+            professional_id: professionalId,
+            servico: agendamentoCriado.servico,
+            dia_marcado: agendamentoCriado.dia_marcado,
+            hora_marcada: agendamentoCriado.hora_marcada,
+            status: agendamentoCriado.status,
+            source: agendamentoCriado.source,
+            created_at: agendamentoCriado.created_at,
+          },
+        };
+
+        // Timeout de 5s pra não segurar o event loop se o n8n travar
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
+          .then((res) => {
+            if (!res.ok) {
+              fastify.log.warn(
+                { status: res.status, webhookUrl },
+                "Webhook n8n respondeu com erro (agendamento criado mesmo assim)",
+              );
+            }
+          })
+          .catch((err) => {
+            fastify.log.warn(
+              { err: err.message, webhookUrl },
+              "Falha ao notificar webhook n8n (agendamento criado mesmo assim)",
+            );
+          })
+          .finally(() => clearTimeout(timeoutId));
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       return reply.status(201).send({
         message: "Agendamento criado.",
         event: mapEvent(rows[0], config.duracao_min),
