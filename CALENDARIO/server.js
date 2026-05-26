@@ -424,7 +424,12 @@ function extractInboundEvent(body) {
       rawContact.wa_id ??
       rawMessage.from ??
       phone,
-    name: payload.name ?? payload.NomeWpp ?? rawContact.profile?.name ?? null,
+    name: (() => {
+      const candidate = payload.name ?? payload.NomeWpp ?? rawContact.profile?.name ?? null;
+      if (candidate == null) return null;
+      const trimmed = String(candidate).trim();
+      return trimmed === "" ? null : trimmed;
+    })(),
     message_type:
       payload.type ?? payload.message_type ?? message.content_type ?? rawMessage.type ?? "text",
     body:
@@ -1655,7 +1660,7 @@ function buildServer() {
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (phone) DO UPDATE
            SET wa_id = COALESCE(EXCLUDED.wa_id, public.whatsapp_contacts.wa_id),
-               name = COALESCE(EXCLUDED.name, public.whatsapp_contacts.name),
+               name = COALESCE(NULLIF(TRIM(EXCLUDED.name), ''), public.whatsapp_contacts.name),
                last_message_at = GREATEST(
                  COALESCE(public.whatsapp_contacts.last_message_at, EXCLUDED.last_message_at),
                  EXCLUDED.last_message_at
