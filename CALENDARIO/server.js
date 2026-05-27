@@ -466,6 +466,7 @@ function mapWhatsAppConversation(row) {
     status: row.status,
     assigned_to: row.assigned_to,
     last_message_at: row.last_message_at,
+    unread_count: Number(row.unread_count ?? 0),
     contact: {
       id: row.contact_id,
       phone: row.phone,
@@ -1753,24 +1754,32 @@ function buildServer() {
     try {
       const { rows } = await pool.query(
         `SELECT c.id, c.status, c.assigned_to, c.last_message_at,
-                ct.id AS contact_id, ct.phone, ct.wa_id, ct.name, ct.service_window_until,
-                lm.direction AS last_direction,
-                lm.sender_type AS last_sender_type,
-                lm.message_type AS last_message_type,
-                lm.body AS last_body,
-                lm.created_at AS last_message_created_at
-         FROM public.whatsapp_conversations c
-         JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
-         LEFT JOIN LATERAL (
-           SELECT direction, sender_type, message_type, body, created_at
-           FROM public.whatsapp_messages m
-           WHERE m.conversation_id = c.id
-           ORDER BY m.created_at DESC
-           LIMIT 1
-         ) lm ON TRUE
-         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-         LIMIT $1`,
-        [limit],
+          ct.id AS contact_id, ct.phone, ct.wa_id, ct.name, ct.service_window_until,
+          lm.direction AS last_direction,
+          lm.sender_type AS last_sender_type,
+          lm.message_type AS last_message_type,
+          lm.body AS last_body,
+          lm.created_at AS last_message_created_at,
+          COALESCE(uc.unread_count, 0) AS unread_count
+          FROM public.whatsapp_conversations c
+          JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
+          LEFT JOIN LATERAL (
+            SELECT direction, sender_type, message_type, body, created_at
+            FROM public.whatsapp_messages m
+            WHERE m.conversation_id = c.id
+            ORDER BY m.created_at DESC
+            LIMIT 1
+          ) lm ON TRUE
+          LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int AS unread_count
+            FROM public.whatsapp_messages m
+            WHERE m.conversation_id = c.id
+              AND m.direction = 'inbound'
+              AND m.read_at IS NULL
+          ) uc ON TRUE
+          ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
+          LIMIT $1`,
+          [limit],
       );
       return rows.map(mapWhatsAppConversation);
     } catch (err) {
@@ -1798,6 +1807,29 @@ function buildServer() {
       if (err?.code === "42P01") return listWhatsAppMemoryMessages(id);
       fastify.log.error(err);
       return reply.status(500).send({ error: "Erro ao buscar mensagens." });
+    }
+  });
+
+  // POST /whatsapp/conversations/:id/read - marca todas mensagens inbound como lidas
+  fastify.post("/whatsapp/conversations/:id/read", { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = request.params;
+    try {
+      const { rows } = await pool.query(
+        `UPDATE public.whatsapp_messages
+          SET read_at = NOW()
+        WHERE conversation_id = $1
+          AND direction = 'inbound'
+          AND read_at IS NULL
+        RETURNING id`,
+        [id],
+      );
+      return { conversation_id: Number(id), marked_read: rows.length };
+    } catch (err) {
+      if (err?.code === "42P01") {
+        return { conversation_id: Number(id), marked_read: 0, memory: true };
+      }
+      fastify.log.error(err);
+      return reply.status(500).send({ error: "Erro ao marcar conversa como lida." });
     }
   });
 

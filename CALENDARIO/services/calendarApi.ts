@@ -50,6 +50,7 @@ export interface WhatsAppConversation {
   status: 'open' | 'bot' | 'human' | 'closed';
   assigned_to: string | null;
   last_message_at: string | null;
+  unread_count: number;
   contact: WhatsAppContact;
   last_message: {
     direction: 'inbound' | 'outbound';
@@ -325,4 +326,12 @@ export async function getWhatsAppConversations(limit = 50): Promise<WhatsAppConv
 
 export async function getWhatsAppMessages(conversationId: number): Promise<WhatsAppMessage[]> {
   return api<WhatsAppMessage[]>(`whatsapp/conversations/${conversationId}/messages`);
+}
+
+export async function markWhatsAppConversationAsRead(
+  conversationId: number,
+): Promise<{ conversation_id: number; marked_read: number }> {
+  return api(`whatsapp/conversations/${conversationId}/read`, {
+    method: 'POST',
+  });
 }

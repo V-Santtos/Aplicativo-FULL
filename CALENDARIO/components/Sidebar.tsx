@@ -4,7 +4,7 @@ import { useCalendar } from '../hooks/useCalendar';
 import { AnimatePresence, motion } from "framer-motion";
 import { Settings, PaintBucket, Trash2, MessageCircle, ChevronLeft, ChevronRight, UserPlus, Clock } from "lucide-react";
 import WhatsAppPanel, { type Conversation } from './WhatsAppPanel';
-import { getWhatsAppConversations, type WhatsAppConversation, updateAgendaConfig, type AgendaConfig } from '../services/calendarApi';
+import { getWhatsAppConversations, markWhatsAppConversationAsRead, type WhatsAppConversation, updateAgendaConfig, type AgendaConfig } from '../services/calendarApi';
 import TimeSelect from './ui/TimeSelect';
 
 const mockConversations: Conversation[] = [
@@ -144,7 +144,7 @@ const toConversation = (item: WhatsAppConversation, index: number): Conversation
     name,
     preview: item.last_message?.body || item.last_message?.message_type || 'Mensagem recebida',
     time: formatConversationTime(item.last_message_at),
-    unread: item.last_message?.direction === 'inbound' ? 1 : 0,
+    unread: item.unread_count ?? 0,
     color: COLORS[index % COLORS.length],
   };
 };
@@ -554,7 +554,20 @@ const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={conv.id}
               type="button"
-              onClick={() => setSelectedConv(selectedConv?.id === conv.id ? null : conv)}
+              onClick={() => {
+                const isOpening = selectedConv?.id !== conv.id;
+                setSelectedConv(isOpening ? conv : null);
+                
+                // Só marca como lida ao ABRIR (não ao fechar) e se tiver não-lidas
+                if (isOpening && conv.unread > 0) {
+                  setConversations((prev) =>
+                    prev.map((c) => (c.id === conv.id ? { ...c, unread: 0 } : c))
+                  );
+                  markWhatsAppConversationAsRead(conv.id).catch((err) => {
+                    console.error('Erro ao marcar conversa como lida:', err);
+                  });
+                }
+              }}
               className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
             >
               <div
