@@ -41,6 +41,7 @@ Conexão: Session Pooler (`aws-1-us-west-2.pooler.supabase.com:5432`) — obriga
 **`configuracao`** — `chave` (PK: `'home'`, `'categorias'`, `'servicos'`), `valor` (jsonb), `atualizado_em`
 
 **`agenda_profissional`**
+
 ```sql
 CREATE TABLE agenda_profissional (
   profissional_id BIGINT PRIMARY KEY REFERENCES profissionais(id) ON DELETE CASCADE,
@@ -55,6 +56,7 @@ CREATE TABLE agenda_profissional (
 ```
 
 **`dias_bloqueados`**
+
 ```sql
 CREATE TABLE dias_bloqueados (
   id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -71,31 +73,32 @@ CREATE TABLE dias_bloqueados (
 
 ## Servidor (`CALENDARIO/server.js`) — Fastify + pg, porta 3333
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/profissionais` | lista ativos |
-| POST | `/profissionais` | cria |
-| PATCH | `/profissionais/:id` | atualiza |
-| DELETE | `/profissionais/:id` | soft delete |
-| GET | `/profissionais/:id/agenda` | retorna `DisableDays` reais |
-| GET | `/profissionais/:id/agenda-config` | dias/horários/duração |
-| PUT | `/profissionais/:id/agenda-config` | salva config (upsert) |
-| GET | `/profissionais/:id/dias-bloqueados` | lista datas bloqueadas |
-| POST | `/profissionais/:id/dias-bloqueados` | bloqueia data |
-| DELETE | `/profissionais/:id/dias-bloqueados/:data` | desbloqueia |
-| GET | `/agendamentos/verificar-telefone?phone=` | verifica cadastro |
-| GET | `/agendamentos/horarios-disponiveis?professionalId=&date=` | slots dinâmicos |
-| GET | `/agendamentos?professionalId=` | filtra por profissional |
-| GET | `/agendamentos?professionalId=&date=` | filtra por profissional + data |
-| POST | `/agendamentos` | cria agendamento |
-| PUT | `/agendamentos/:id` | atualiza |
-| PATCH | `/agendamentos/:id/status` | atualiza status |
-| DELETE | `/agendamentos/:id` | remove |
-| GET | `/configuracao/:chave` | lê configuração |
-| PUT | `/configuracao/:chave` | salva configuração |
-| POST | `/whatsapp/events?persist=false` | espelho inbound CRM (MVP em memória) |
+| Método | Rota                                                       | Descrição                            |
+| ------ | ---------------------------------------------------------- | ------------------------------------ |
+| GET    | `/profissionais`                                           | lista ativos                         |
+| POST   | `/profissionais`                                           | cria                                 |
+| PATCH  | `/profissionais/:id`                                       | atualiza                             |
+| DELETE | `/profissionais/:id`                                       | soft delete                          |
+| GET    | `/profissionais/:id/agenda`                                | retorna `DisableDays` reais          |
+| GET    | `/profissionais/:id/agenda-config`                         | dias/horários/duração                |
+| PUT    | `/profissionais/:id/agenda-config`                         | salva config (upsert)                |
+| GET    | `/profissionais/:id/dias-bloqueados`                       | lista datas bloqueadas               |
+| POST   | `/profissionais/:id/dias-bloqueados`                       | bloqueia data                        |
+| DELETE | `/profissionais/:id/dias-bloqueados/:data`                 | desbloqueia                          |
+| GET    | `/agendamentos/verificar-telefone?phone=`                  | verifica cadastro                    |
+| GET    | `/agendamentos/horarios-disponiveis?professionalId=&date=` | slots dinâmicos                      |
+| GET    | `/agendamentos?professionalId=`                            | filtra por profissional              |
+| GET    | `/agendamentos?professionalId=&date=`                      | filtra por profissional + data       |
+| POST   | `/agendamentos`                                            | cria agendamento                     |
+| PUT    | `/agendamentos/:id`                                        | atualiza                             |
+| PATCH  | `/agendamentos/:id/status`                                 | atualiza status                      |
+| DELETE | `/agendamentos/:id`                                        | remove                               |
+| GET    | `/configuracao/:chave`                                     | lê configuração                      |
+| PUT    | `/configuracao/:chave`                                     | salva configuração                   |
+| POST   | `/whatsapp/events?persist=false`                           | espelho inbound CRM (MVP em memória) |
 
 **Regras de negócio:**
+
 - Slots gerados por `hora_inicio`, `hora_fim`, `duracao_min`; descanso remove slots que cruzam `intervalo_inicio`/`intervalo_duracao_min`
 - Bloqueio parcial por período (`morning/afternoon/night`) barra novos slots sem afetar existentes
 - Antecedência mínima de 15 min; blindado contra duplo agendamento e slots inválidos
@@ -104,21 +107,21 @@ CREATE TABLE dias_bloqueados (
 
 ## Camada de API (`SITE-BARB-PROF-UNICO/api/index.ts`)
 
-| Função | Método | Endpoint |
-|--------|--------|----------|
-| `checkPhone(phone)` | GET | `/agendamentos/verificar-telefone?phone=` |
-| `getProfessionals()` | GET | `/profissionais` |
-| `getProfessionalSchedule(id)` | GET | `/profissionais/:id/agenda` |
-| `getAvailableSlots(id, date)` | GET | `/agendamentos/horarios-disponiveis` |
-| `getEventsByProfessional(id)` | GET | `/agendamentos?professionalId=` |
-| `createBooking(payload)` | POST | `/agendamentos` |
-| `getAgendaConfig(id)` | GET | `/profissionais/:id/agenda-config` |
-| `updateAgendaConfig(id, config)` | PUT | `/profissionais/:id/agenda-config` |
-| `getBlockedDays(id)` | GET | `/profissionais/:id/dias-bloqueados` |
-| `blockDay(id, data, motivo)` | POST | `/profissionais/:id/dias-bloqueados` |
-| `unblockDay(id, data)` | DELETE | `/profissionais/:id/dias-bloqueados/:data` |
-| `getConfig(chave)` | GET | `/configuracao/:chave` |
-| `updateConfig(chave, valor)` | PUT | `/configuracao/:chave` |
+| Função                           | Método | Endpoint                                   |
+| -------------------------------- | ------ | ------------------------------------------ |
+| `checkPhone(phone)`              | GET    | `/agendamentos/verificar-telefone?phone=`  |
+| `getProfessionals()`             | GET    | `/profissionais`                           |
+| `getProfessionalSchedule(id)`    | GET    | `/profissionais/:id/agenda`                |
+| `getAvailableSlots(id, date)`    | GET    | `/agendamentos/horarios-disponiveis`       |
+| `getEventsByProfessional(id)`    | GET    | `/agendamentos?professionalId=`            |
+| `createBooking(payload)`         | POST   | `/agendamentos`                            |
+| `getAgendaConfig(id)`            | GET    | `/profissionais/:id/agenda-config`         |
+| `updateAgendaConfig(id, config)` | PUT    | `/profissionais/:id/agenda-config`         |
+| `getBlockedDays(id)`             | GET    | `/profissionais/:id/dias-bloqueados`       |
+| `blockDay(id, data, motivo)`     | POST   | `/profissionais/:id/dias-bloqueados`       |
+| `unblockDay(id, data)`           | DELETE | `/profissionais/:id/dias-bloqueados/:data` |
+| `getConfig(chave)`               | GET    | `/configuracao/:chave`                     |
+| `updateConfig(chave, valor)`     | PUT    | `/configuracao/:chave`                     |
 
 ---
 
@@ -167,22 +170,24 @@ Em `hooks/useCalendar.ts` + `Regras/regraHorarios.ts`:
 ## Stack
 
 ### SITE-BARB-PROF-UNICO (porta 3001)
-| Camada | Tecnologia |
-|---|---|
-| UI | React 18 + TypeScript |
-| Build | Vite 6 |
-| Rotas | react-router-dom |
-| Animações | GSAP 3.15 local (`file:../../GSAP`) |
-| CSS | Tailwind v4 via `@tailwindcss/vite` |
-| Componentes UI | shadcn (manual) + 21st.dev |
-| Backend | `api/index.ts` → proxy Vite → `localhost:3333` |
+
+| Camada         | Tecnologia                                     |
+| -------------- | ---------------------------------------------- |
+| UI             | React 18 + TypeScript                          |
+| Build          | Vite 6                                         |
+| Rotas          | react-router-dom                               |
+| Animações      | GSAP 3.15 local (`file:../../GSAP`)            |
+| CSS            | Tailwind v4 via `@tailwindcss/vite`            |
+| Componentes UI | shadcn (manual) + 21st.dev                     |
+| Backend        | `api/index.ts` → proxy Vite → `localhost:3333` |
 
 ### CALENDARIO (porta 3333 + 3002)
-| Camada | Tecnologia |
-|---|---|
-| Servidor | Node.js + Fastify |
-| Banco | Supabase (PostgreSQL via `pg` Pool, Session Pooler) |
-| Front admin | React/Vite, porta 3002 |
+
+| Camada      | Tecnologia                                          |
+| ----------- | --------------------------------------------------- |
+| Servidor    | Node.js + Fastify                                   |
+| Banco       | Supabase (PostgreSQL via `pg` Pool, Session Pooler) |
+| Front admin | React/Vite, porta 3002                              |
 
 ---
 
@@ -209,4 +214,6 @@ cd "Aplicativo FULL/CALENDARIO" && npm run dev
 
 # App de agendamento (porta 3001)
 cd "Aplicativo FULL/SITE-BARB-PROF-UNICO" && npm run dev
+
+
 ```
