@@ -107,23 +107,30 @@ function getRateLimitPolicy(request) {
   const method = request.method.toUpperCase();
   const path = request.url.split("?")[0];
 
-  if (method === "POST" && path === "/agendamentos") return { max: 10, label: "booking" };
+  if (method === "POST" && path === "/agendamentos")
+    return { max: 10, label: "booking" };
   if (method === "GET" && path === "/agendamentos/verificar-telefone") {
     return { max: 20, label: "phone-check" };
   }
-  if (method === "POST" && path === "/whatsapp/events") return { max: 30, label: "whatsapp-webhook" };
-  if (path.startsWith("/whatsapp/")) return { max: 20, label: "whatsapp-admin" };
+  if (method === "POST" && path === "/whatsapp/events")
+    return { max: 30, label: "whatsapp-webhook" };
+  if (path.startsWith("/whatsapp/"))
+    return { max: 20, label: "whatsapp-admin" };
 
   const adminWriteMethods = ["POST", "PUT", "PATCH", "DELETE"];
-  if (adminWriteMethods.includes(method)) return { max: RATE_LIMIT_MAX, label: "admin-write" };
-  if (method === "GET" && path === "/agendamentos") return { max: RATE_LIMIT_MAX, label: "admin-read" };
+  if (adminWriteMethods.includes(method))
+    return { max: RATE_LIMIT_MAX, label: "admin-write" };
+  if (method === "GET" && path === "/agendamentos")
+    return { max: RATE_LIMIT_MAX, label: "admin-read" };
 
   return null;
 }
 
 function rateLimitKey(request, policy) {
   const forwardedFor = getHeaderValue(request.headers["x-forwarded-for"]);
-  const ip = String(forwardedFor ?? request.ip ?? request.socket?.remoteAddress ?? "unknown")
+  const ip = String(
+    forwardedFor ?? request.ip ?? request.socket?.remoteAddress ?? "unknown",
+  )
     .split(",")[0]
     .trim();
   return `${policy.label}:${ip}`;
@@ -149,15 +156,20 @@ async function applyBasicRateLimit(request, reply) {
 
   const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
   reply.header("Retry-After", String(Math.max(retryAfter, 1)));
-  return reply.status(429).send({ error: "Muitas tentativas. Tente novamente em instantes." });
+  return reply
+    .status(429)
+    .send({ error: "Muitas tentativas. Tente novamente em instantes." });
 }
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of rateLimitBuckets.entries()) {
-    if (bucket.resetAt <= now) rateLimitBuckets.delete(key);
-  }
-}, Math.min(Math.max(EFFECTIVE_RATE_LIMIT_WINDOW_MS, 10_000), 60_000)).unref?.();
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, bucket] of rateLimitBuckets.entries()) {
+      if (bucket.resetAt <= now) rateLimitBuckets.delete(key);
+    }
+  },
+  Math.min(Math.max(EFFECTIVE_RATE_LIMIT_WINDOW_MS, 10_000), 60_000),
+).unref?.();
 
 function fmtDate(val) {
   return String(val ?? "").substring(0, 10);
@@ -179,7 +191,10 @@ function minutesToTime(totalMinutes) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-function normalizeBookingWindowDays(value, fallback = DEFAULT_AGENDA.janela_agendamento_dias) {
+function normalizeBookingWindowDays(
+  value,
+  fallback = DEFAULT_AGENDA.janela_agendamento_dias,
+) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(Math.max(Math.round(parsed), 7), 15);
@@ -220,7 +235,9 @@ function overlapsBreak(slotStart, duracaoMin, breakWindow) {
 
 function normalizePeriods(periodos) {
   if (!Array.isArray(periodos)) return null;
-  const unique = [...new Set(periodos)].filter((period) => BLOCK_PERIODS.includes(period));
+  const unique = [...new Set(periodos)].filter((period) =>
+    BLOCK_PERIODS.includes(period),
+  );
   return unique.length ? unique : [];
 }
 
@@ -332,9 +349,13 @@ async function getAgendaConfig(professionalId) {
     hora_inicio: fmtTime(rows[0].hora_inicio),
     hora_fim: fmtTime(rows[0].hora_fim),
     duracao_min: rows[0].duracao_min,
-    intervalo_inicio: rows[0].intervalo_inicio ? fmtTime(rows[0].intervalo_inicio) : null,
+    intervalo_inicio: rows[0].intervalo_inicio
+      ? fmtTime(rows[0].intervalo_inicio)
+      : null,
     intervalo_duracao_min: rows[0].intervalo_duracao_min,
-    janela_agendamento_dias: normalizeBookingWindowDays(rows[0].janela_agendamento_dias),
+    janela_agendamento_dias: normalizeBookingWindowDays(
+      rows[0].janela_agendamento_dias,
+    ),
   };
 }
 
@@ -350,7 +371,12 @@ function normalizeWhatsAppJid(value) {
 }
 
 function firstNameFromFullName(value) {
-  return String(value ?? "").trim().split(/\s+/).filter(Boolean)[0] ?? "";
+  return (
+    String(value ?? "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)[0] ?? ""
+  );
 }
 
 function parseWhatsAppTimestamp(value) {
@@ -400,7 +426,9 @@ function extractInboundEvent(body) {
 
   const direction =
     payload.direction ??
-    (message.event === "outgoing" || payload.event === "outgoing" ? "outbound" : "inbound");
+    (message.event === "outgoing" || payload.event === "outgoing"
+      ? "outbound"
+      : "inbound");
 
   const phone = normalizeWhatsAppPhone(
     payload.phone ??
@@ -415,7 +443,8 @@ function extractInboundEvent(body) {
 
   return {
     direction,
-    sender_type: payload.sender_type ?? (direction === "inbound" ? "customer" : "bot"),
+    sender_type:
+      payload.sender_type ?? (direction === "inbound" ? "customer" : "bot"),
     phone,
     wa_id:
       payload.wa_id ??
@@ -425,20 +454,31 @@ function extractInboundEvent(body) {
       rawMessage.from ??
       phone,
     name: (() => {
-      const candidate = payload.name ?? payload.NomeWpp ?? rawContact.profile?.name ?? null;
+      const candidate =
+        payload.name ?? payload.NomeWpp ?? rawContact.profile?.name ?? null;
       if (candidate == null) return null;
       const trimmed = String(candidate).trim();
       return trimmed === "" ? null : trimmed;
     })(),
     message_type:
-      payload.type ?? payload.message_type ?? message.content_type ?? rawMessage.type ?? "text",
+      payload.type ??
+      payload.message_type ??
+      message.content_type ??
+      rawMessage.type ??
+      "text",
     body:
       payload.body ??
       payload.content ??
       message.content ??
       getWhatsAppMessageBody(rawMessage, null),
-    whatsapp_message_id: payload.whatsapp_message_id ?? payload.message_id ?? rawMessage.id ?? null,
-    occurred_at: parseWhatsAppTimestamp(payload.timestamp ?? message.timestamp ?? rawMessage.timestamp),
+    whatsapp_message_id:
+      payload.whatsapp_message_id ??
+      payload.message_id ??
+      rawMessage.id ??
+      null,
+    occurred_at: parseWhatsAppTimestamp(
+      payload.timestamp ?? message.timestamp ?? rawMessage.timestamp,
+    ),
     raw_payload: raw,
   };
 }
@@ -490,15 +530,22 @@ function upsertWhatsAppMemoryEvent(event) {
   const now = new Date();
   const serviceWindowUntil =
     event.direction === "inbound"
-      ? new Date(event.occurred_at.getTime() + 24 * 60 * 60 * 1000).toISOString()
+      ? new Date(
+          event.occurred_at.getTime() + 24 * 60 * 60 * 1000,
+        ).toISOString()
       : undefined;
 
   const contact = {
     ...(whatsappMemory.contacts.get(event.phone) ?? {}),
-    id: whatsappMemory.contacts.get(event.phone)?.id ?? whatsappMemory.contacts.size + 1,
+    id:
+      whatsappMemory.contacts.get(event.phone)?.id ??
+      whatsappMemory.contacts.size + 1,
     phone: event.phone,
     wa_id: event.wa_id ?? event.phone,
-    name: event.name ?? whatsappMemory.contacts.get(event.phone)?.name ?? event.phone,
+    name:
+      event.name ??
+      whatsappMemory.contacts.get(event.phone)?.name ??
+      event.phone,
     last_message_at: event.occurred_at.toISOString(),
     service_window_until:
       serviceWindowUntil ??
@@ -543,7 +590,9 @@ function upsertWhatsAppMemoryEvent(event) {
   const messages = whatsappMemory.messages.get(conversation.id) ?? [];
   const alreadyExists =
     event.whatsapp_message_id &&
-    messages.some((item) => item.whatsapp_message_id === event.whatsapp_message_id);
+    messages.some(
+      (item) => item.whatsapp_message_id === event.whatsapp_message_id,
+    );
 
   if (!alreadyExists) {
     messages.push(message);
@@ -566,7 +615,9 @@ function upsertWhatsAppMemoryEvent(event) {
 
 function listWhatsAppMemoryConversations(limit = 50) {
   return [...whatsappMemory.conversations.values()]
-    .sort((a, b) => String(b.last_message_at).localeCompare(String(a.last_message_at)))
+    .sort((a, b) =>
+      String(b.last_message_at).localeCompare(String(a.last_message_at)),
+    )
     .slice(0, limit);
 }
 
@@ -664,12 +715,21 @@ async function getServicesFromTables() {
 function buildServer() {
   const fastify = Fastify({ logger: true });
   const requireAdmin = buildTokenGuard("ADMIN_API_TOKEN", "ADMIN_API_TOKEN");
-  const requireWebhookToken = buildTokenGuard("WHATSAPP_WEBHOOK_TOKEN", "WHATSAPP_WEBHOOK_TOKEN");
+  const requireWebhookToken = buildTokenGuard(
+    "WHATSAPP_WEBHOOK_TOKEN",
+    "WHATSAPP_WEBHOOK_TOKEN",
+  );
 
   fastify.register(cors, {
     origin: (origin, cb) => cb(null, isCorsOriginAllowed(origin)),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Accept", "Authorization", "X-Admin-Token", "X-Webhook-Token"],
+    allowedHeaders: [
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "X-Admin-Token",
+      "X-Webhook-Token",
+    ],
   });
   fastify.addHook("onRequest", applyBasicRateLimit);
 
@@ -706,7 +766,9 @@ function buildServer() {
         [id],
       );
       if (!proRows.length)
-        return reply.status(404).send({ error: "Profissional não encontrado." });
+        return reply
+          .status(404)
+          .send({ error: "Profissional não encontrado." });
 
       const config = await getAgendaConfig(id);
 
@@ -727,7 +789,10 @@ function buildServer() {
         d.setDate(today.getDate() + i);
         const dayOfWeek = d.getDay();
         const dateStr = d.toISOString().substring(0, 10);
-        if (!config.dias_semana.includes(dayOfWeek) || manuallyBlocked.has(dateStr)) {
+        if (
+          !config.dias_semana.includes(dayOfWeek) ||
+          manuallyBlocked.has(dateStr)
+        ) {
           disabledDays.push(dateStr);
         }
       }
@@ -748,7 +813,9 @@ function buildServer() {
         [id],
       );
       if (!proRows.length)
-        return reply.status(404).send({ error: "Profissional não encontrado." });
+        return reply
+          .status(404)
+          .send({ error: "Profissional não encontrado." });
 
       const { rows } = await pool.query(
         `SELECT dias_semana, hora_inicio::text, hora_fim::text, duracao_min,
@@ -760,7 +827,11 @@ function buildServer() {
       );
 
       if (!rows.length) {
-        return { profissional_id: Number(id), ...DEFAULT_AGENDA, atualizado_em: null };
+        return {
+          profissional_id: Number(id),
+          ...DEFAULT_AGENDA,
+          atualizado_em: null,
+        };
       }
 
       return {
@@ -769,9 +840,13 @@ function buildServer() {
         hora_inicio: fmtTime(rows[0].hora_inicio),
         hora_fim: fmtTime(rows[0].hora_fim),
         duracao_min: rows[0].duracao_min,
-        intervalo_inicio: rows[0].intervalo_inicio ? fmtTime(rows[0].intervalo_inicio) : null,
+        intervalo_inicio: rows[0].intervalo_inicio
+          ? fmtTime(rows[0].intervalo_inicio)
+          : null,
         intervalo_duracao_min: rows[0].intervalo_duracao_min,
-        janela_agendamento_dias: normalizeBookingWindowDays(rows[0].janela_agendamento_dias),
+        janela_agendamento_dias: normalizeBookingWindowDays(
+          rows[0].janela_agendamento_dias,
+        ),
         atualizado_em: rows[0].atualizado_em,
       };
     } catch (err) {
@@ -785,7 +860,11 @@ function buildServer() {
           );
 
           if (!rows.length) {
-            return { profissional_id: Number(id), ...DEFAULT_AGENDA, atualizado_em: null };
+            return {
+              profissional_id: Number(id),
+              ...DEFAULT_AGENDA,
+              atualizado_em: null,
+            };
           }
 
           return {
@@ -794,7 +873,9 @@ function buildServer() {
             hora_inicio: fmtTime(rows[0].hora_inicio),
             hora_fim: fmtTime(rows[0].hora_fim),
             duracao_min: rows[0].duracao_min,
-            intervalo_inicio: rows[0].intervalo_inicio ? fmtTime(rows[0].intervalo_inicio) : null,
+            intervalo_inicio: rows[0].intervalo_inicio
+              ? fmtTime(rows[0].intervalo_inicio)
+              : null,
             intervalo_duracao_min: rows[0].intervalo_duracao_min,
             janela_agendamento_dias: DEFAULT_AGENDA.janela_agendamento_dias,
             atualizado_em: rows[0].atualizado_em,
@@ -804,64 +885,79 @@ function buildServer() {
         }
       }
       fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar configuração de agenda." });
+      return reply
+        .status(500)
+        .send({ error: "Erro ao buscar configuração de agenda." });
     }
   });
 
   // PUT /profissionais/:id/agenda-config — salva config (upsert)
-  fastify.put("/profissionais/:id/agenda-config", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    const {
-      dias_semana,
-      hora_inicio,
-      hora_fim,
-      duracao_min,
-      intervalo_inicio = null,
-      intervalo_duracao_min = null,
-      janela_agendamento_dias = DEFAULT_AGENDA.janela_agendamento_dias,
-    } = request.body ?? {};
+  fastify.put(
+    "/profissionais/:id/agenda-config",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      const {
+        dias_semana,
+        hora_inicio,
+        hora_fim,
+        duracao_min,
+        intervalo_inicio = null,
+        intervalo_duracao_min = null,
+        janela_agendamento_dias = DEFAULT_AGENDA.janela_agendamento_dias,
+      } = request.body ?? {};
 
-    if (!dias_semana || !hora_inicio || !hora_fim || !duracao_min) {
-      return reply.status(400).send({
-        error: "dias_semana, hora_inicio, hora_fim, duracao_min são obrigatórios.",
-      });
-    }
-
-    if ((intervalo_inicio && !intervalo_duracao_min) || (!intervalo_inicio && intervalo_duracao_min)) {
-      return reply.status(400).send({
-        error: "intervalo_inicio e intervalo_duracao_min devem ser informados juntos.",
-      });
-    }
-
-    if (
-      intervalo_duracao_min !== null &&
-      ![30, 60, 90, 120].includes(Number(intervalo_duracao_min))
-    ) {
-      return reply.status(400).send({
-        error: "intervalo_duracao_min deve ser 30, 60, 90 ou 120.",
-      });
-    }
-
-    if (intervalo_inicio) {
-      const breakStart = timeToMinutes(intervalo_inicio);
-      const breakEnd = breakStart + Number(intervalo_duracao_min);
-      if (breakStart < timeToMinutes(hora_inicio) || breakEnd > timeToMinutes(hora_fim)) {
+      if (!dias_semana || !hora_inicio || !hora_fim || !duracao_min) {
         return reply.status(400).send({
-          error: "O descanso precisa ficar dentro do horário de trabalho.",
+          error:
+            "dias_semana, hora_inicio, hora_fim, duracao_min são obrigatórios.",
         });
       }
-    }
 
-    const bookingWindowDays = normalizeBookingWindowDays(janela_agendamento_dias);
-    if (Number(janela_agendamento_dias) !== bookingWindowDays) {
-      return reply.status(400).send({
-        error: "janela_agendamento_dias deve ficar entre 7 e 15.",
-      });
-    }
+      if (
+        (intervalo_inicio && !intervalo_duracao_min) ||
+        (!intervalo_inicio && intervalo_duracao_min)
+      ) {
+        return reply.status(400).send({
+          error:
+            "intervalo_inicio e intervalo_duracao_min devem ser informados juntos.",
+        });
+      }
 
-    try {
-      const { rows } = await pool.query(
-        `INSERT INTO public.agenda_profissional
+      if (
+        intervalo_duracao_min !== null &&
+        ![30, 60, 90, 120].includes(Number(intervalo_duracao_min))
+      ) {
+        return reply.status(400).send({
+          error: "intervalo_duracao_min deve ser 30, 60, 90 ou 120.",
+        });
+      }
+
+      if (intervalo_inicio) {
+        const breakStart = timeToMinutes(intervalo_inicio);
+        const breakEnd = breakStart + Number(intervalo_duracao_min);
+        if (
+          breakStart < timeToMinutes(hora_inicio) ||
+          breakEnd > timeToMinutes(hora_fim)
+        ) {
+          return reply.status(400).send({
+            error: "O descanso precisa ficar dentro do horário de trabalho.",
+          });
+        }
+      }
+
+      const bookingWindowDays = normalizeBookingWindowDays(
+        janela_agendamento_dias,
+      );
+      if (Number(janela_agendamento_dias) !== bookingWindowDays) {
+        return reply.status(400).send({
+          error: "janela_agendamento_dias deve ficar entre 7 e 15.",
+        });
+      }
+
+      try {
+        const { rows } = await pool.query(
+          `INSERT INTO public.agenda_profissional
            (profissional_id, dias_semana, hora_inicio, hora_fim, duracao_min,
             intervalo_inicio, intervalo_duracao_min, janela_agendamento_dias, atualizado_em)
          VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8, NOW())
@@ -877,34 +973,38 @@ function buildServer() {
          RETURNING profissional_id, dias_semana, hora_inicio::text, hora_fim::text,
                    duracao_min, intervalo_inicio::text, intervalo_duracao_min,
                    janela_agendamento_dias, atualizado_em`,
-        [
-          id,
-          JSON.stringify(dias_semana),
-          hora_inicio,
-          hora_fim,
-          duracao_min,
-          intervalo_inicio,
-          intervalo_duracao_min,
-          bookingWindowDays,
-        ],
-      );
+          [
+            id,
+            JSON.stringify(dias_semana),
+            hora_inicio,
+            hora_fim,
+            duracao_min,
+            intervalo_inicio,
+            intervalo_duracao_min,
+            bookingWindowDays,
+          ],
+        );
 
-      return {
-        profissional_id: rows[0].profissional_id,
-        dias_semana: rows[0].dias_semana,
-        hora_inicio: fmtTime(rows[0].hora_inicio),
-        hora_fim: fmtTime(rows[0].hora_fim),
-        duracao_min: rows[0].duracao_min,
-        intervalo_inicio: rows[0].intervalo_inicio ? fmtTime(rows[0].intervalo_inicio) : null,
-        intervalo_duracao_min: rows[0].intervalo_duracao_min,
-        janela_agendamento_dias: normalizeBookingWindowDays(rows[0].janela_agendamento_dias),
-        atualizado_em: rows[0].atualizado_em,
-      };
-    } catch (err) {
-      if (isUndefinedColumnError(err)) {
-        try {
-          const { rows } = await pool.query(
-            `INSERT INTO public.agenda_profissional
+        return {
+          profissional_id: rows[0].profissional_id,
+          dias_semana: rows[0].dias_semana,
+          hora_inicio: fmtTime(rows[0].hora_inicio),
+          hora_fim: fmtTime(rows[0].hora_fim),
+          duracao_min: rows[0].duracao_min,
+          intervalo_inicio: rows[0].intervalo_inicio
+            ? fmtTime(rows[0].intervalo_inicio)
+            : null,
+          intervalo_duracao_min: rows[0].intervalo_duracao_min,
+          janela_agendamento_dias: normalizeBookingWindowDays(
+            rows[0].janela_agendamento_dias,
+          ),
+          atualizado_em: rows[0].atualizado_em,
+        };
+      } catch (err) {
+        if (isUndefinedColumnError(err)) {
+          try {
+            const { rows } = await pool.query(
+              `INSERT INTO public.agenda_profissional
                (profissional_id, dias_semana, hora_inicio, hora_fim, duracao_min,
                 intervalo_inicio, intervalo_duracao_min, atualizado_em)
              VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, NOW())
@@ -918,36 +1018,41 @@ function buildServer() {
                    atualizado_em = NOW()
              RETURNING profissional_id, dias_semana, hora_inicio::text, hora_fim::text,
                        duracao_min, intervalo_inicio::text, intervalo_duracao_min, atualizado_em`,
-            [
-              id,
-              JSON.stringify(dias_semana),
-              hora_inicio,
-              hora_fim,
-              duracao_min,
-              intervalo_inicio,
-              intervalo_duracao_min,
-            ],
-          );
+              [
+                id,
+                JSON.stringify(dias_semana),
+                hora_inicio,
+                hora_fim,
+                duracao_min,
+                intervalo_inicio,
+                intervalo_duracao_min,
+              ],
+            );
 
-          return {
-            profissional_id: rows[0].profissional_id,
-            dias_semana: rows[0].dias_semana,
-            hora_inicio: fmtTime(rows[0].hora_inicio),
-            hora_fim: fmtTime(rows[0].hora_fim),
-            duracao_min: rows[0].duracao_min,
-            intervalo_inicio: rows[0].intervalo_inicio ? fmtTime(rows[0].intervalo_inicio) : null,
-            intervalo_duracao_min: rows[0].intervalo_duracao_min,
-            janela_agendamento_dias: DEFAULT_AGENDA.janela_agendamento_dias,
-            atualizado_em: rows[0].atualizado_em,
-          };
-        } catch (fallbackErr) {
-          fastify.log.error(fallbackErr);
+            return {
+              profissional_id: rows[0].profissional_id,
+              dias_semana: rows[0].dias_semana,
+              hora_inicio: fmtTime(rows[0].hora_inicio),
+              hora_fim: fmtTime(rows[0].hora_fim),
+              duracao_min: rows[0].duracao_min,
+              intervalo_inicio: rows[0].intervalo_inicio
+                ? fmtTime(rows[0].intervalo_inicio)
+                : null,
+              intervalo_duracao_min: rows[0].intervalo_duracao_min,
+              janela_agendamento_dias: DEFAULT_AGENDA.janela_agendamento_dias,
+              atualizado_em: rows[0].atualizado_em,
+            };
+          } catch (fallbackErr) {
+            fastify.log.error(fallbackErr);
+          }
         }
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao salvar configuração de agenda." });
       }
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao salvar configuração de agenda." });
-    }
-  });
+    },
+  );
 
   // GET /profissionais/:id/dias-bloqueados — lista datas bloqueadas manualmente
   fastify.get("/profissionais/:id/dias-bloqueados", async (request, reply) => {
@@ -971,146 +1076,200 @@ function buildServer() {
       }));
     } catch (err) {
       fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar dias bloqueados." });
+      return reply
+        .status(500)
+        .send({ error: "Erro ao buscar dias bloqueados." });
     }
   });
 
   // POST /profissionais/:id/dias-bloqueados — bloqueia uma data
-  fastify.post("/profissionais/:id/dias-bloqueados", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    const { data, motivo = null, periodos } = request.body ?? {};
+  fastify.post(
+    "/profissionais/:id/dias-bloqueados",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { data, motivo = null, periodos } = request.body ?? {};
 
-    if (!data) return reply.status(400).send({ error: "data é obrigatório." });
-    const normalizedPeriods = periodos === undefined ? null : normalizePeriods(periodos);
-    if (periodos !== undefined && normalizedPeriods === null) {
-      return reply.status(400).send({ error: "periodos deve ser uma lista." });
-    }
-
-    try {
-      if (Array.isArray(normalizedPeriods) && normalizedPeriods.length === 0) {
-        const { rowCount } = await pool.query(
-          `DELETE FROM public.dias_bloqueados WHERE profissional_id = $1 AND data = $2`,
-          [id, data],
-        );
-        return {
-          message: rowCount ? "Bloqueio removido." : "Nenhum bloqueio encontrado.",
-          data,
-          periodos: [],
-        };
+      if (!data)
+        return reply.status(400).send({ error: "data é obrigatório." });
+      const normalizedPeriods =
+        periodos === undefined ? null : normalizePeriods(periodos);
+      if (periodos !== undefined && normalizedPeriods === null) {
+        return reply
+          .status(400)
+          .send({ error: "periodos deve ser uma lista." });
       }
 
-      const persistedPeriods =
-        normalizedPeriods && normalizedPeriods.length === BLOCK_PERIODS.length
-          ? null
-          : normalizedPeriods;
+      try {
+        if (
+          Array.isArray(normalizedPeriods) &&
+          normalizedPeriods.length === 0
+        ) {
+          const { rowCount } = await pool.query(
+            `DELETE FROM public.dias_bloqueados WHERE profissional_id = $1 AND data = $2`,
+            [id, data],
+          );
+          return {
+            message: rowCount
+              ? "Bloqueio removido."
+              : "Nenhum bloqueio encontrado.",
+            data,
+            periodos: [],
+          };
+        }
 
-      const { rows } = await pool.query(
-        `INSERT INTO public.dias_bloqueados (profissional_id, data, motivo, periodos)
+        const persistedPeriods =
+          normalizedPeriods && normalizedPeriods.length === BLOCK_PERIODS.length
+            ? null
+            : normalizedPeriods;
+
+        const { rows } = await pool.query(
+          `INSERT INTO public.dias_bloqueados (profissional_id, data, motivo, periodos)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (profissional_id, data) DO UPDATE
            SET motivo = EXCLUDED.motivo,
                periodos = EXCLUDED.periodos
          RETURNING id, data::text, motivo, periodos, created_at`,
-        [id, data, motivo, persistedPeriods],
-      );
-      return reply.status(201).send({
-        id: rows[0].id,
-        data: fmtDate(rows[0].data),
-        motivo: rows[0].motivo,
-        periodos: rows[0].periodos,
-        created_at: rows[0].created_at,
-      });
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao bloquear dia." });
-    }
-  });
+          [id, data, motivo, persistedPeriods],
+        );
+        return reply.status(201).send({
+          id: rows[0].id,
+          data: fmtDate(rows[0].data),
+          motivo: rows[0].motivo,
+          periodos: rows[0].periodos,
+          created_at: rows[0].created_at,
+        });
+      } catch (err) {
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao bloquear dia." });
+      }
+    },
+  );
 
   // DELETE /profissionais/:id/dias-bloqueados/:data — desbloqueia uma data
-  fastify.delete("/profissionais/:id/dias-bloqueados/:data", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id, data } = request.params;
-    try {
-      const { rowCount } = await pool.query(
-        `DELETE FROM public.dias_bloqueados WHERE profissional_id = $1 AND data = $2`,
-        [id, data],
-      );
-      if (!rowCount)
-        return reply.status(404).send({ error: "Dia bloqueado não encontrado." });
-      return { message: "Dia desbloqueado.", data };
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao desbloquear dia." });
-    }
-  });
+  fastify.delete(
+    "/profissionais/:id/dias-bloqueados/:data",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id, data } = request.params;
+      try {
+        const { rowCount } = await pool.query(
+          `DELETE FROM public.dias_bloqueados WHERE profissional_id = $1 AND data = $2`,
+          [id, data],
+        );
+        if (!rowCount)
+          return reply
+            .status(404)
+            .send({ error: "Dia bloqueado não encontrado." });
+        return { message: "Dia desbloqueado.", data };
+      } catch (err) {
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao desbloquear dia." });
+      }
+    },
+  );
 
   // POST /profissionais — cria
-  fastify.post("/profissionais", { preHandler: requireAdmin }, async (request, reply) => {
-    const { nome, cor } = request.body ?? {};
-    if (!nome || !cor)
-      return reply.status(400).send({ error: "nome e cor são obrigatórios." });
+  fastify.post(
+    "/profissionais",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { nome, cor } = request.body ?? {};
+      if (!nome || !cor)
+        return reply
+          .status(400)
+          .send({ error: "nome e cor são obrigatórios." });
 
-    try {
-      const { rows } = await pool.query(
-        `INSERT INTO public.profissionais (nome, cor, ativo)
+      try {
+        const { rows } = await pool.query(
+          `INSERT INTO public.profissionais (nome, cor, ativo)
          VALUES ($1, $2, TRUE)
          RETURNING id, nome, cor, ativo, created_at`,
-        [nome, cor],
-      );
-      return reply.status(201).send(mapProfessional(rows[0]));
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao criar profissional." });
-    }
-  });
+          [nome, cor],
+        );
+        return reply.status(201).send(mapProfessional(rows[0]));
+      } catch (err) {
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao criar profissional." });
+      }
+    },
+  );
 
   // PATCH /profissionais/:id — atualiza campos
-  fastify.patch("/profissionais/:id", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    const { nome, cor, ativo } = request.body ?? {};
+  fastify.patch(
+    "/profissionais/:id",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { nome, cor, ativo } = request.body ?? {};
 
-    const fields = [];
-    const params = [];
-    if (nome !== undefined) { params.push(nome); fields.push(`nome = $${params.length}`); }
-    if (cor !== undefined)  { params.push(cor);  fields.push(`cor = $${params.length}`); }
-    if (ativo !== undefined){ params.push(ativo); fields.push(`ativo = $${params.length}`); }
+      const fields = [];
+      const params = [];
+      if (nome !== undefined) {
+        params.push(nome);
+        fields.push(`nome = $${params.length}`);
+      }
+      if (cor !== undefined) {
+        params.push(cor);
+        fields.push(`cor = $${params.length}`);
+      }
+      if (ativo !== undefined) {
+        params.push(ativo);
+        fields.push(`ativo = $${params.length}`);
+      }
 
-    if (!fields.length)
-      return reply.status(400).send({ error: "Nenhum campo para atualizar." });
+      if (!fields.length)
+        return reply
+          .status(400)
+          .send({ error: "Nenhum campo para atualizar." });
 
-    params.push(id);
-    try {
-      const { rows } = await pool.query(
-        `UPDATE public.profissionais
+      params.push(id);
+      try {
+        const { rows } = await pool.query(
+          `UPDATE public.profissionais
          SET ${fields.join(", ")}
          WHERE id = $${params.length}
          RETURNING id, nome, cor, ativo, created_at`,
-        params,
-      );
-      if (!rows.length)
-        return reply.status(404).send({ error: "Profissional não encontrado." });
-      return mapProfessional(rows[0]);
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao atualizar profissional." });
-    }
-  });
+          params,
+        );
+        if (!rows.length)
+          return reply
+            .status(404)
+            .send({ error: "Profissional não encontrado." });
+        return mapProfessional(rows[0]);
+      } catch (err) {
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao atualizar profissional." });
+      }
+    },
+  );
 
   // DELETE /profissionais/:id — soft delete
-  fastify.delete("/profissionais/:id", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    try {
-      const { rows } = await pool.query(
-        `UPDATE public.profissionais SET ativo = FALSE WHERE id = $1 RETURNING id`,
-        [id],
-      );
-      if (!rows.length)
-        return reply.status(404).send({ error: "Profissional não encontrado." });
-      return { message: "Profissional removido.", id: Number(id) };
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao remover profissional." });
-    }
-  });
+  fastify.delete(
+    "/profissionais/:id",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      try {
+        const { rows } = await pool.query(
+          `UPDATE public.profissionais SET ativo = FALSE WHERE id = $1 RETURNING id`,
+          [id],
+        );
+        if (!rows.length)
+          return reply
+            .status(404)
+            .send({ error: "Profissional não encontrado." });
+        return { message: "Profissional removido.", id: Number(id) };
+      } catch (err) {
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao remover profissional." });
+      }
+    },
+  );
 
   // ─── AGENDAMENTOS ──────────────────────────────────────────────────────────
 
@@ -1152,7 +1311,9 @@ function buildServer() {
   fastify.get("/agendamentos/horarios-disponiveis", async (request, reply) => {
     const { professionalId, date } = request.query;
     if (!professionalId || !date)
-      return reply.status(400).send({ error: "professionalId e date são obrigatórios." });
+      return reply
+        .status(400)
+        .send({ error: "professionalId e date são obrigatórios." });
 
     try {
       const [config, blockedResult, bookedResult] = await Promise.all([
@@ -1175,20 +1336,39 @@ function buildServer() {
       ]);
 
       if (!isWithinBookingWindow(date, config.janela_agendamento_dias)) {
-        return { professionalId: Number(professionalId), date, availableSlots: [] };
+        return {
+          professionalId: Number(professionalId),
+          date,
+          availableSlots: [],
+        };
       }
 
       if (!isWorkingDate(date, config)) {
-        return { professionalId: Number(professionalId), date, availableSlots: [] };
+        return {
+          professionalId: Number(professionalId),
+          date,
+          availableSlots: [],
+        };
       }
 
       const blockedPeriods = blockedResult.rows[0]?.periodos ?? undefined;
       if (blockedResult.rows.length && blockedPeriods === null) {
-        return { professionalId: Number(professionalId), date, availableSlots: [] };
+        return {
+          professionalId: Number(professionalId),
+          date,
+          availableSlots: [],
+        };
       }
 
-      const allSlots = buildSlots(config.hora_inicio, config.hora_fim, config.duracao_min, config);
-      const booked = new Set(bookedResult.rows.map((r) => fmtTime(r.hora_marcada)));
+      const allSlots = buildSlots(
+        config.hora_inicio,
+        config.hora_fim,
+        config.duracao_min,
+        config,
+      );
+      const booked = new Set(
+        bookedResult.rows.map((r) => fmtTime(r.hora_marcada)),
+      );
       const availableSlots = allSlots.filter(
         (s) =>
           !booked.has(s) &&
@@ -1219,13 +1399,16 @@ function buildServer() {
         [professionalId],
       );
       if (!proRows.length) {
-        return reply.status(404).send({ error: "Profissional não encontrado." });
+        return reply
+          .status(404)
+          .send({ error: "Profissional não encontrado." });
       }
 
       const config = await getAgendaConfig(professionalId);
-      const daysToCheck = days === undefined
-        ? config.janela_agendamento_dias
-        : normalizeBookingWindowDays(days, config.janela_agendamento_dias);
+      const daysToCheck =
+        days === undefined
+          ? config.janela_agendamento_dias
+          : normalizeBookingWindowDays(days, config.janela_agendamento_dias);
       const startDate = today.toISOString().substring(0, 10);
       const endDay = new Date(today);
       endDay.setDate(today.getDate() + daysToCheck - 1);
@@ -1251,7 +1434,9 @@ function buildServer() {
       ]);
 
       // Índices em memória para lookup O(1) no loop
-      const blockedByDate = new Map(blockedResult.rows.map((r) => [r.data, r.periodos]));
+      const blockedByDate = new Map(
+        blockedResult.rows.map((r) => [r.data, r.periodos]),
+      );
       const bookedByDate = new Map();
       for (const row of bookedResult.rows) {
         const d = fmtDate(row.dia_marcado);
@@ -1259,7 +1444,12 @@ function buildServer() {
         bookedByDate.get(d).add(fmtTime(row.hora_marcada));
       }
 
-      const allSlots = buildSlots(config.hora_inicio, config.hora_fim, config.duracao_min, config);
+      const allSlots = buildSlots(
+        config.hora_inicio,
+        config.hora_fim,
+        config.duracao_min,
+        config,
+      );
 
       for (let i = 0; i < daysToCheck; i++) {
         const d = new Date(today);
@@ -1287,7 +1477,12 @@ function buildServer() {
         const availableSlots = eligibleSlots.filter((s) => !booked.has(s));
         const totalSlotsCount = eligibleSlots.length;
         const occupancyRatio = totalSlotsCount
-          ? Number(((totalSlotsCount - availableSlots.length) / totalSlotsCount).toFixed(2))
+          ? Number(
+              (
+                (totalSlotsCount - availableSlots.length) /
+                totalSlotsCount
+              ).toFixed(2),
+            )
           : 1;
 
         if (availableSlots.length) {
@@ -1311,18 +1506,23 @@ function buildServer() {
       };
     } catch (err) {
       fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar dias disponíveis." });
+      return reply
+        .status(500)
+        .send({ error: "Erro ao buscar dias disponíveis." });
     }
   });
 
   // GET /agendamentos — aceita ?professionalId= e/ou ?date=
-  fastify.get("/agendamentos", { preHandler: requireAdmin }, async (request, reply) => {
-    const { professionalId, date } = request.query;
-    try {
-      const conditions = [];
-      const params = [];
+  fastify.get(
+    "/agendamentos",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { professionalId, date } = request.query;
+      try {
+        const conditions = [];
+        const params = [];
 
-      let query = `
+        let query = `
         SELECT a.*,
                a.dia_marcado::text  AS dia_marcado,
                a.hora_marcada::text AS hora_marcada,
@@ -1331,31 +1531,34 @@ function buildServer() {
         FROM public.agendamentos a
       `;
 
-      if (professionalId) {
-        query += ` JOIN public.profissionais p ON a.profissional = p.nome
+        if (professionalId) {
+          query += ` JOIN public.profissionais p ON a.profissional = p.nome
                    LEFT JOIN public.agenda_profissional ap ON p.id = ap.profissional_id`;
-        params.push(professionalId);
-        conditions.push(`p.id = $${params.length}`);
-      } else {
-        query += ` LEFT JOIN public.profissionais p ON a.profissional = p.nome
+          params.push(professionalId);
+          conditions.push(`p.id = $${params.length}`);
+        } else {
+          query += ` LEFT JOIN public.profissionais p ON a.profissional = p.nome
                    LEFT JOIN public.agenda_profissional ap ON p.id = ap.profissional_id`;
+        }
+
+        if (date) {
+          params.push(date);
+          conditions.push(`a.dia_marcado = $${params.length}`);
+        }
+
+        if (conditions.length) query += ` WHERE ${conditions.join(" AND ")}`;
+        query += ` ORDER BY a.dia_marcado ASC, a.hora_marcada ASC`;
+
+        const { rows } = await pool.query(query, params);
+        return rows.map((r) => mapEvent(r, r.duracao_min ?? 60));
+      } catch (err) {
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao buscar agendamentos." });
       }
-
-      if (date) {
-        params.push(date);
-        conditions.push(`a.dia_marcado = $${params.length}`);
-      }
-
-      if (conditions.length) query += ` WHERE ${conditions.join(" AND ")}`;
-      query += ` ORDER BY a.dia_marcado ASC, a.hora_marcada ASC`;
-
-      const { rows } = await pool.query(query, params);
-      return rows.map((r) => mapEvent(r, r.duracao_min ?? 60));
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar agendamentos." });
-    }
-  });
+    },
+  );
 
   // POST /agendamentos — cria agendamento
   fastify.post("/agendamentos", async (request, reply) => {
@@ -1372,7 +1575,8 @@ function buildServer() {
 
     if (!cliente || !profissional || !dia_marcado || !hora_marcada) {
       return reply.status(400).send({
-        error: "Campos obrigatórios: cliente, profissional, dia_marcado, hora_marcada.",
+        error:
+          "Campos obrigatórios: cliente, profissional, dia_marcado, hora_marcada.",
       });
     }
 
@@ -1382,17 +1586,23 @@ function buildServer() {
         [profissional],
       );
       if (!proRows.length) {
-        return reply.status(404).send({ error: "Profissional não encontrado." });
+        return reply
+          .status(404)
+          .send({ error: "Profissional não encontrado." });
       }
 
       const professionalId = proRows[0].id;
       const config = await getAgendaConfig(professionalId);
       if (!isWithinBookingWindow(dia_marcado, config.janela_agendamento_dias)) {
-        return reply.status(409).send({ error: "Data fora da janela de agendamento." });
+        return reply
+          .status(409)
+          .send({ error: "Data fora da janela de agendamento." });
       }
 
       if (!isWorkingDate(dia_marcado, config)) {
-        return reply.status(409).send({ error: "Profissional não atende nesta data." });
+        return reply
+          .status(409)
+          .send({ error: "Profissional não atende nesta data." });
       }
 
       const { rows: blockedRows } = await pool.query(
@@ -1403,10 +1613,17 @@ function buildServer() {
       );
       const blockedPeriods = blockedRows[0]?.periodos ?? undefined;
       if (blockedRows.length && blockedPeriods === null) {
-        return reply.status(409).send({ error: "Data bloqueada para este profissional." });
+        return reply
+          .status(409)
+          .send({ error: "Data bloqueada para este profissional." });
       }
 
-      const allSlots = buildSlots(config.hora_inicio, config.hora_fim, config.duracao_min, config);
+      const allSlots = buildSlots(
+        config.hora_inicio,
+        config.hora_fim,
+        config.duracao_min,
+        config,
+      );
       const { rows: bookedRows } = await pool.query(
         `SELECT a.hora_marcada::text
          FROM public.agendamentos a
@@ -1433,7 +1650,16 @@ function buildServer() {
          RETURNING *,
            dia_marcado::text  AS dia_marcado,
            hora_marcada::text AS hora_marcada`,
-        [telefone, cliente, profissional, servico, dia_marcado, hora_marcada, status, source],
+        [
+          telefone,
+          cliente,
+          profissional,
+          servico,
+          dia_marcado,
+          hora_marcada,
+          status,
+          source,
+        ],
       );
 
       const clientePrimeiroNome = firstNameFromFullName(cliente);
@@ -1513,7 +1739,10 @@ function buildServer() {
         event: mapEvent(rows[0], config.duracao_min),
       });
     } catch (err) {
-      if (err?.code === "23505" && err?.constraint === "agendamentos_slot_ativo_unique") {
+      if (
+        err?.code === "23505" &&
+        err?.constraint === "agendamentos_slot_ativo_unique"
+      ) {
         return reply.status(409).send({ error: "Horário indisponível." });
       }
       fastify.log.error(err);
@@ -1522,141 +1751,189 @@ function buildServer() {
   });
 
   // PUT /agendamentos/:id — atualiza agendamento completo
-  fastify.put("/agendamentos/:id", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    const { telefone, cliente, profissional, servico, dia_marcado, hora_marcada, status } =
-      request.body ?? {};
+  fastify.put(
+    "/agendamentos/:id",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      const {
+        telefone,
+        cliente,
+        profissional,
+        servico,
+        dia_marcado,
+        hora_marcada,
+        status,
+      } = request.body ?? {};
 
-    const fields = [];
-    const params = [];
-    const add = (col, val) => { params.push(val); fields.push(`${col} = $${params.length}`); };
+      const fields = [];
+      const params = [];
+      const add = (col, val) => {
+        params.push(val);
+        fields.push(`${col} = $${params.length}`);
+      };
 
-    if (telefone    !== undefined) add("telefone", telefone);
-    if (cliente     !== undefined) add("cliente", cliente);
-    if (profissional!== undefined) add("profissional", profissional);
-    if (servico     !== undefined) add("servico", servico);
-    if (dia_marcado !== undefined) add("dia_marcado", dia_marcado);
-    if (hora_marcada!== undefined) add("hora_marcada", hora_marcada);
-    if (status      !== undefined) add("status", status);
+      if (telefone !== undefined) add("telefone", telefone);
+      if (cliente !== undefined) add("cliente", cliente);
+      if (profissional !== undefined) add("profissional", profissional);
+      if (servico !== undefined) add("servico", servico);
+      if (dia_marcado !== undefined) add("dia_marcado", dia_marcado);
+      if (hora_marcada !== undefined) add("hora_marcada", hora_marcada);
+      if (status !== undefined) add("status", status);
 
-    if (!fields.length)
-      return reply.status(400).send({ error: "Nenhum campo para atualizar." });
+      if (!fields.length)
+        return reply
+          .status(400)
+          .send({ error: "Nenhum campo para atualizar." });
 
-    params.push(id);
-    try {
-      const { rows } = await pool.query(
-        `UPDATE public.agendamentos
+      params.push(id);
+      try {
+        const { rows } = await pool.query(
+          `UPDATE public.agendamentos
          SET ${fields.join(", ")}, updated_at = NOW()
          WHERE id = $${params.length}
          RETURNING *,
            dia_marcado::text  AS dia_marcado,
            hora_marcada::text AS hora_marcada`,
-        params,
-      );
-      if (!rows.length)
-        return reply.status(404).send({ error: "Agendamento não encontrado." });
-      return { event: mapEvent(rows[0]) };
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao atualizar agendamento." });
-    }
-  });
+          params,
+        );
+        if (!rows.length)
+          return reply
+            .status(404)
+            .send({ error: "Agendamento não encontrado." });
+        return { event: mapEvent(rows[0]) };
+      } catch (err) {
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao atualizar agendamento." });
+      }
+    },
+  );
 
   // PATCH /agendamentos/:id/status — atualiza só o status
-  fastify.patch("/agendamentos/:id/status", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    const { status } = request.body ?? {};
-    const valid = ["agendado", "confirmado", "concluido", "cancelado", "reagendado"];
+  fastify.patch(
+    "/agendamentos/:id/status",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { status } = request.body ?? {};
+      const valid = [
+        "agendado",
+        "confirmado",
+        "concluido",
+        "cancelado",
+        "reagendado",
+      ];
 
-    if (!status || !valid.includes(status)) {
-      return reply.status(400).send({
-        error: `Status inválido. Use: ${valid.join(", ")}`,
-      });
-    }
+      if (!status || !valid.includes(status)) {
+        return reply.status(400).send({
+          error: `Status inválido. Use: ${valid.join(", ")}`,
+        });
+      }
 
-    try {
-      const { rows } = await pool.query(
-        `UPDATE public.agendamentos
+      try {
+        const { rows } = await pool.query(
+          `UPDATE public.agendamentos
          SET status = $1, updated_at = NOW()
          WHERE id = $2
          RETURNING id, status`,
-        [status, id],
-      );
-      if (!rows.length)
-        return reply.status(404).send({ error: "Agendamento não encontrado." });
-      return { id: rows[0].id, status: rows[0].status };
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao atualizar status." });
-    }
-  });
+          [status, id],
+        );
+        if (!rows.length)
+          return reply
+            .status(404)
+            .send({ error: "Agendamento não encontrado." });
+        return { id: rows[0].id, status: rows[0].status };
+      } catch (err) {
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao atualizar status." });
+      }
+    },
+  );
 
   // DELETE /agendamentos/:id — remove agendamento
-  fastify.delete("/agendamentos/:id", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    try {
-      const { rowCount } = await pool.query(
-        `DELETE FROM public.agendamentos WHERE id = $1`,
-        [id],
-      );
-      if (!rowCount)
-        return reply.status(404).send({ error: "Agendamento não encontrado." });
-      return { message: "Agendamento removido.", id: Number(id) };
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao remover agendamento." });
-    }
-  });
+  fastify.delete(
+    "/agendamentos/:id",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      try {
+        const { rowCount } = await pool.query(
+          `DELETE FROM public.agendamentos WHERE id = $1`,
+          [id],
+        );
+        if (!rowCount)
+          return reply
+            .status(404)
+            .send({ error: "Agendamento não encontrado." });
+        return { message: "Agendamento removido.", id: Number(id) };
+      } catch (err) {
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao remover agendamento." });
+      }
+    },
+  );
 
   // ─── CONFIGURAÇÃO ──────────────────────────────────────────────────────────
 
   // WHATSAPP CRM
 
   // POST /whatsapp/events - espelha mensagens do N8N para o CRM do calendario
-  fastify.post("/whatsapp/events", { preHandler: requireWebhookToken }, async (request, reply) => {
-    const event = extractInboundEvent(request.body);
-    const shouldPersist = request.query?.persist !== "false" && request.body?.persist !== false;
+  fastify.post(
+    "/whatsapp/events",
+    { preHandler: requireWebhookToken },
+    async (request, reply) => {
+      const event = extractInboundEvent(request.body);
+      const shouldPersist =
+        request.query?.persist !== "false" && request.body?.persist !== false;
 
-    if (!["inbound", "outbound"].includes(event.direction)) {
-      return reply.status(400).send({ error: "direction deve ser inbound ou outbound." });
-    }
+      if (!["inbound", "outbound"].includes(event.direction)) {
+        return reply
+          .status(400)
+          .send({ error: "direction deve ser inbound ou outbound." });
+      }
 
-    if (!event.phone) {
-      return reply.status(400).send({ error: "phone/Telefone/wa_id e obrigatorio." });
-    }
+      if (!event.phone) {
+        return reply
+          .status(400)
+          .send({ error: "phone/Telefone/wa_id e obrigatorio." });
+      }
 
-    if (!shouldPersist) {
-      const stored = upsertWhatsAppMemoryEvent(event);
-      return reply.status(202).send({
-        accepted: true,
-        persisted: false,
-        memory: true,
-        conversation_id: stored.conversation.id,
-        event: {
-          direction: event.direction,
-          sender_type: event.sender_type,
-          phone: event.phone,
-          wa_id: event.wa_id,
-          name: event.name,
-          message_type: event.message_type,
-          body: event.body,
-          whatsapp_message_id: event.whatsapp_message_id,
-          occurred_at: event.occurred_at.toISOString(),
-        },
-      });
-    }
+      if (!shouldPersist) {
+        const stored = upsertWhatsAppMemoryEvent(event);
+        return reply.status(202).send({
+          accepted: true,
+          persisted: false,
+          memory: true,
+          conversation_id: stored.conversation.id,
+          event: {
+            direction: event.direction,
+            sender_type: event.sender_type,
+            phone: event.phone,
+            wa_id: event.wa_id,
+            name: event.name,
+            message_type: event.message_type,
+            body: event.body,
+            whatsapp_message_id: event.whatsapp_message_id,
+            occurred_at: event.occurred_at.toISOString(),
+          },
+        });
+      }
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
 
-      const serviceWindowUntil =
-        event.direction === "inbound"
-          ? new Date(event.occurred_at.getTime() + 24 * 60 * 60 * 1000)
-          : null;
+        const serviceWindowUntil =
+          event.direction === "inbound"
+            ? new Date(event.occurred_at.getTime() + 24 * 60 * 60 * 1000)
+            : null;
 
-      const { rows: contactRows } = await client.query(
-        `INSERT INTO public.whatsapp_contacts
+        const { rows: contactRows } = await client.query(
+          `INSERT INTO public.whatsapp_contacts
            (phone, wa_id, name, last_message_at, service_window_until, updated_at)
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (phone) DO UPDATE
@@ -1675,43 +1952,49 @@ function buildServer() {
                END,
                updated_at = NOW()
          RETURNING id, phone, wa_id, name, service_window_until`,
-        [event.phone, event.wa_id, event.name, event.occurred_at, serviceWindowUntil],
-      );
+          [
+            event.phone,
+            event.wa_id,
+            event.name,
+            event.occurred_at,
+            serviceWindowUntil,
+          ],
+        );
 
-      const contact = contactRows[0];
+        const contact = contactRows[0];
 
-      let conversation;
-      const { rows: conversationRows } = await client.query(
-        `SELECT id, status
+        let conversation;
+        const { rows: conversationRows } = await client.query(
+          `SELECT id, status
          FROM public.whatsapp_conversations
          WHERE contact_id = $1 AND status <> 'closed'
          ORDER BY created_at DESC
          LIMIT 1`,
-        [contact.id],
-      );
+          [contact.id],
+        );
 
-      if (conversationRows.length) {
-        conversation = conversationRows[0];
-        await client.query(
-          `UPDATE public.whatsapp_conversations
+        if (conversationRows.length) {
+          conversation = conversationRows[0];
+          await client.query(
+            `UPDATE public.whatsapp_conversations
            SET last_message_at = GREATEST(COALESCE(last_message_at, $2), $2),
                updated_at = NOW()
            WHERE id = $1`,
-          [conversation.id, event.occurred_at],
-        );
-      } else {
-        const { rows } = await client.query(
-          `INSERT INTO public.whatsapp_conversations
+            [conversation.id, event.occurred_at],
+          );
+        } else {
+          const { rows } = await client.query(
+            `INSERT INTO public.whatsapp_conversations
              (contact_id, status, last_message_at)
            VALUES ($1, 'open', $2)
            RETURNING id, status`,
-          [contact.id, event.occurred_at],
-        );
-        conversation = rows[0];
-      }
+            [contact.id, event.occurred_at],
+          );
+          conversation = rows[0];
+        }
 
-      const { rows: messageRows } = await client.query(
-        `INSERT INTO public.whatsapp_messages
+        const { rows: messageRows } = await client.query(
+          `INSERT INTO public.whatsapp_messages
            (conversation_id, contact_id, direction, sender_type, whatsapp_message_id,
             message_type, body, raw_payload, created_at, received_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, NOW())
@@ -1720,40 +2003,46 @@ function buildServer() {
          RETURNING id, conversation_id, contact_id, direction, sender_type,
                    whatsapp_message_id, message_type, body, media_id, status,
                    created_at, received_at`,
-        [
-          conversation.id,
-          contact.id,
-          event.direction,
-          event.sender_type,
-          event.whatsapp_message_id,
-          event.message_type,
-          event.body,
-          JSON.stringify(event.raw_payload ?? {}),
-          event.occurred_at,
-        ],
-      );
+          [
+            conversation.id,
+            contact.id,
+            event.direction,
+            event.sender_type,
+            event.whatsapp_message_id,
+            event.message_type,
+            event.body,
+            JSON.stringify(event.raw_payload ?? {}),
+            event.occurred_at,
+          ],
+        );
 
-      await client.query("COMMIT");
-      return reply.status(201).send({
-        contact,
-        conversation: { id: conversation.id, status: conversation.status },
-        message: mapWhatsAppMessage(messageRows[0]),
-      });
-    } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao registrar evento do WhatsApp." });
-    } finally {
-      client.release();
-    }
-  });
+        await client.query("COMMIT");
+        return reply.status(201).send({
+          contact,
+          conversation: { id: conversation.id, status: conversation.status },
+          message: mapWhatsAppMessage(messageRows[0]),
+        });
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao registrar evento do WhatsApp." });
+      } finally {
+        client.release();
+      }
+    },
+  );
 
   // GET /whatsapp/conversations - lista conversas recentes
-  fastify.get("/whatsapp/conversations", { preHandler: requireAdmin }, async (request, reply) => {
-    const limit = Math.min(Number(request.query.limit ?? 50) || 50, 100);
-    try {
-      const { rows } = await pool.query(
-        `SELECT c.id, c.status, c.assigned_to, c.last_message_at,
+  fastify.get(
+    "/whatsapp/conversations",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const limit = Math.min(Number(request.query.limit ?? 50) || 50, 100);
+      try {
+        const { rows } = await pool.query(
+          `SELECT c.id, c.status, c.assigned_to, c.last_message_at,
           ct.id AS contact_id, ct.phone, ct.wa_id, ct.name, ct.service_window_until,
           lm.direction AS last_direction,
           lm.sender_type AS last_sender_type,
@@ -1763,6 +2052,7 @@ function buildServer() {
           COALESCE(uc.unread_count, 0) AS unread_count
           FROM public.whatsapp_conversations c
           JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
+          WHERE c.status = 'closed'
           LEFT JOIN LATERAL (
             SELECT direction, sender_type, message_type, body, created_at
             FROM public.whatsapp_messages m
@@ -1780,58 +2070,70 @@ function buildServer() {
           ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
           LIMIT $1`,
           [limit],
-      );
-      return rows.map(mapWhatsAppConversation);
-    } catch (err) {
-      if (err?.code === "42P01") return listWhatsAppMemoryConversations(limit);
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar conversas." });
-    }
-  });
+        );
+        return rows.map(mapWhatsAppConversation);
+      } catch (err) {
+        if (err?.code === "42P01")
+          return listWhatsAppMemoryConversations(limit);
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao buscar conversas." });
+      }
+    },
+  );
 
   // GET /whatsapp/conversations/:id/messages - mensagens de uma conversa
-  fastify.get("/whatsapp/conversations/:id/messages", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    try {
-      const { rows } = await pool.query(
-        `SELECT id, conversation_id, contact_id, direction, sender_type,
+  fastify.get(
+    "/whatsapp/conversations/:id/messages",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      try {
+        const { rows } = await pool.query(
+          `SELECT id, conversation_id, contact_id, direction, sender_type,
                 whatsapp_message_id, message_type, body, media_id, status,
                 created_at, received_at
          FROM public.whatsapp_messages
          WHERE conversation_id = $1
          ORDER BY created_at ASC, id ASC`,
-        [id],
-      );
-      return rows.map(mapWhatsAppMessage);
-    } catch (err) {
-      if (err?.code === "42P01") return listWhatsAppMemoryMessages(id);
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar mensagens." });
-    }
-  });
+          [id],
+        );
+        return rows.map(mapWhatsAppMessage);
+      } catch (err) {
+        if (err?.code === "42P01") return listWhatsAppMemoryMessages(id);
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao buscar mensagens." });
+      }
+    },
+  );
 
   // POST /whatsapp/conversations/:id/read - marca todas mensagens inbound como lidas
-  fastify.post("/whatsapp/conversations/:id/read", { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params;
-    try {
-      const { rows } = await pool.query(
-        `UPDATE public.whatsapp_messages
+  fastify.post(
+    "/whatsapp/conversations/:id/read",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      try {
+        const { rows } = await pool.query(
+          `UPDATE public.whatsapp_messages
           SET read_at = NOW()
         WHERE conversation_id = $1
           AND direction = 'inbound'
           AND read_at IS NULL
         RETURNING id`,
-        [id],
-      );
-      return { conversation_id: Number(id), marked_read: rows.length };
-    } catch (err) {
-      if (err?.code === "42P01") {
-        return { conversation_id: Number(id), marked_read: 0, memory: true };
+          [id],
+        );
+        return { conversation_id: Number(id), marked_read: rows.length };
+      } catch (err) {
+        if (err?.code === "42P01") {
+          return { conversation_id: Number(id), marked_read: 0, memory: true };
+        }
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao marcar conversa como lida." });
       }
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao marcar conversa como lida." });
-    }
-  });
+    },
+  );
 
   // DELETE /whatsapp/memory - limpa somente o buffer temporario de testes
   fastify.delete("/whatsapp/memory", { preHandler: requireAdmin }, async () => {
@@ -1852,75 +2154,83 @@ function buildServer() {
         return normalizeCategoryConfig(await getConfigValue("categorias"));
       }
       fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao buscar categorias de servicos." });
+      return reply
+        .status(500)
+        .send({ error: "Erro ao buscar categorias de servicos." });
     }
   });
 
   // PUT /categorias-servicos - substitui catalogo de categorias e espelha filtersEnabled
-  fastify.put("/categorias-servicos", { preHandler: requireAdmin }, async (request, reply) => {
-    const payload = normalizeCategoryConfig(request.body);
-    const items = payload.items
-      .map((item, index) => ({
-        id: String(item.id ?? "").trim(),
-        label: String(item.label ?? "").trim(),
-        active: item.active !== false,
-        ordem: index + 1,
-      }))
-      .filter((item) => item.id && item.label);
+  fastify.put(
+    "/categorias-servicos",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const payload = normalizeCategoryConfig(request.body);
+      const items = payload.items
+        .map((item, index) => ({
+          id: String(item.id ?? "").trim(),
+          label: String(item.label ?? "").trim(),
+          active: item.active !== false,
+          ordem: index + 1,
+        }))
+        .filter((item) => item.id && item.label);
 
-    const legacyValue = { filtersEnabled: payload.filtersEnabled, items };
+      const legacyValue = { filtersEnabled: payload.filtersEnabled, items };
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `INSERT INTO public.configuracao (chave, valor, atualizado_em)
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `INSERT INTO public.configuracao (chave, valor, atualizado_em)
          VALUES ('categorias', $1::jsonb, NOW())
          ON CONFLICT (chave) DO UPDATE SET valor = $1::jsonb, atualizado_em = NOW()`,
-        [JSON.stringify(legacyValue)],
-      );
+          [JSON.stringify(legacyValue)],
+        );
 
-      await client.query(
-        `DELETE FROM public.categorias_servicos
-         WHERE NOT (id = ANY($1::text[]))`,
-        [items.map((item) => item.id)],
-      );
-
-      for (const item of items) {
         await client.query(
-          `INSERT INTO public.categorias_servicos (id, nome, ativo, ordem)
+          `DELETE FROM public.categorias_servicos
+         WHERE NOT (id = ANY($1::text[]))`,
+          [items.map((item) => item.id)],
+        );
+
+        for (const item of items) {
+          await client.query(
+            `INSERT INTO public.categorias_servicos (id, nome, ativo, ordem)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (id) DO UPDATE SET
              nome = EXCLUDED.nome,
              ativo = EXCLUDED.ativo,
              ordem = EXCLUDED.ordem`,
-          [item.id, item.label, item.active, item.ordem],
-        );
-      }
+            [item.id, item.label, item.active, item.ordem],
+          );
+        }
 
-      await client.query("COMMIT");
-      return legacyValue;
-    } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
-      if (isMissingTableError(err)) {
-        try {
-          await pool.query(
-            `INSERT INTO public.configuracao (chave, valor, atualizado_em)
+        await client.query("COMMIT");
+        return legacyValue;
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        if (isMissingTableError(err)) {
+          try {
+            await pool.query(
+              `INSERT INTO public.configuracao (chave, valor, atualizado_em)
              VALUES ('categorias', $1::jsonb, NOW())
              ON CONFLICT (chave) DO UPDATE SET valor = $1::jsonb, atualizado_em = NOW()`,
-            [JSON.stringify(legacyValue)],
-          );
-          return legacyValue;
-        } catch (fallbackErr) {
-          fastify.log.error(fallbackErr);
+              [JSON.stringify(legacyValue)],
+            );
+            return legacyValue;
+          } catch (fallbackErr) {
+            fastify.log.error(fallbackErr);
+          }
         }
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao salvar categorias de servicos." });
+      } finally {
+        client.release();
       }
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao salvar categorias de servicos." });
-    } finally {
-      client.release();
-    }
-  });
+    },
+  );
 
   // GET /servicos - catalogo estruturado com fallback para configuracao
   fastify.get("/servicos", async (_request, reply) => {
@@ -1936,46 +2246,52 @@ function buildServer() {
   });
 
   // PUT /servicos - substitui catalogo de servicos
-  fastify.put("/servicos", { preHandler: requireAdmin }, async (request, reply) => {
-    const normalized = normalizeServicesForSave(request.body);
-    if (!normalized) {
-      return reply.status(400).send({ error: "Lista de servicos invalida." });
-    }
+  fastify.put(
+    "/servicos",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const normalized = normalizeServicesForSave(request.body);
+      if (!normalized) {
+        return reply.status(400).send({ error: "Lista de servicos invalida." });
+      }
 
-    const invalidService = normalized.find(
-      (item) => !item.slug || !item.name || !item.desc || !item.category,
-    );
-    if (invalidService) {
-      return reply.status(400).send({
-        error: "Todos os servicos precisam de slug, nome, descricao e categoria.",
-      });
-    }
+      const invalidService = normalized.find(
+        (item) => !item.slug || !item.name || !item.desc || !item.category,
+      );
+      if (invalidService) {
+        return reply.status(400).send({
+          error:
+            "Todos os servicos precisam de slug, nome, descricao e categoria.",
+        });
+      }
 
-    const { rows: categoryRows } = await pool.query(
-      `SELECT id FROM public.categorias_servicos`,
-    );
-    const validCategories = new Set(categoryRows.map((row) => row.id));
-    const invalidCategory = normalized.find((item) => !validCategories.has(item.category));
-    if (invalidCategory) {
-      return reply.status(400).send({
-        error: `Categoria invalida para o servico "${invalidCategory.name}".`,
-      });
-    }
+      const { rows: categoryRows } = await pool.query(
+        `SELECT id FROM public.categorias_servicos`,
+      );
+      const validCategories = new Set(categoryRows.map((row) => row.id));
+      const invalidCategory = normalized.find(
+        (item) => !validCategories.has(item.category),
+      );
+      if (invalidCategory) {
+        return reply.status(400).send({
+          error: `Categoria invalida para o servico "${invalidCategory.name}".`,
+        });
+      }
 
-    const incoming = normalized.map((item, index) => ({
-      ...item,
-      ordem: index + 1,
-    }));
+      const incoming = normalized.map((item, index) => ({
+        ...item,
+        ordem: index + 1,
+      }));
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const saved = [];
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const saved = [];
 
-      for (const item of incoming) {
-        if (item.id > 0) {
-          const { rows } = await client.query(
-            `INSERT INTO public.servicos
+        for (const item of incoming) {
+          if (item.id > 0) {
+            const { rows } = await client.query(
+              `INSERT INTO public.servicos
                (id, slug, nome, descricao, preco, categoria_id, ativo, ordem)
              VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7)
              ON CONFLICT (id) DO UPDATE SET
@@ -1987,12 +2303,20 @@ function buildServer() {
                ativo = TRUE,
                ordem = EXCLUDED.ordem
              RETURNING id, slug, nome, descricao, preco, categoria_id`,
-            [item.id, item.slug, item.name, item.desc, item.price, item.category, item.ordem],
-          );
-          saved.push(mapServiceRow(rows[0]));
-        } else {
-          const { rows } = await client.query(
-            `INSERT INTO public.servicos
+              [
+                item.id,
+                item.slug,
+                item.name,
+                item.desc,
+                item.price,
+                item.category,
+                item.ordem,
+              ],
+            );
+            saved.push(mapServiceRow(rows[0]));
+          } else {
+            const { rows } = await client.query(
+              `INSERT INTO public.servicos
                (slug, nome, descricao, preco, categoria_id, ativo, ordem)
              VALUES ($1, $2, $3, $4, $5, TRUE, $6)
              ON CONFLICT (slug) DO UPDATE SET
@@ -2003,55 +2327,63 @@ function buildServer() {
                ativo = TRUE,
                ordem = EXCLUDED.ordem
              RETURNING id, slug, nome, descricao, preco, categoria_id`,
-            [item.slug, item.name, item.desc, item.price, item.category, item.ordem],
-          );
-          saved.push(mapServiceRow(rows[0]));
+              [
+                item.slug,
+                item.name,
+                item.desc,
+                item.price,
+                item.category,
+                item.ordem,
+              ],
+            );
+            saved.push(mapServiceRow(rows[0]));
+          }
         }
-      }
 
-      await client.query(
-        `UPDATE public.servicos
+        await client.query(
+          `UPDATE public.servicos
          SET ativo = FALSE
          WHERE NOT (id = ANY($1::bigint[]))`,
-        [saved.map((item) => item.id)],
-      );
-      await client.query(
-        `SELECT setval(
+          [saved.map((item) => item.id)],
+        );
+        await client.query(
+          `SELECT setval(
            pg_get_serial_sequence('public.servicos', 'id'),
            COALESCE((SELECT MAX(id) FROM public.servicos), 1),
            TRUE
          )`,
-      );
-      await client.query(
-        `INSERT INTO public.configuracao (chave, valor, atualizado_em)
+        );
+        await client.query(
+          `INSERT INTO public.configuracao (chave, valor, atualizado_em)
          VALUES ('servicos', $1::jsonb, NOW())
          ON CONFLICT (chave) DO UPDATE SET valor = $1::jsonb, atualizado_em = NOW()`,
-        [JSON.stringify(saved)],
-      );
+          [JSON.stringify(saved)],
+        );
 
-      await client.query("COMMIT");
-      return saved;
-    } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
-      if (isMissingTableError(err)) {
-        try {
-          await pool.query(
-            `INSERT INTO public.configuracao (chave, valor, atualizado_em)
+        await client.query("COMMIT");
+        return saved;
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        if (isMissingTableError(err)) {
+          try {
+            await pool.query(
+              `INSERT INTO public.configuracao (chave, valor, atualizado_em)
              VALUES ('servicos', $1::jsonb, NOW())
              ON CONFLICT (chave) DO UPDATE SET valor = $1::jsonb, atualizado_em = NOW()`,
-            [JSON.stringify(incoming.map(({ ordem, ...item }) => item))],
-          );
-          return incoming.map(({ ordem, ...item }) => item);
-        } catch (fallbackErr) {
-          fastify.log.error(fallbackErr);
+              [JSON.stringify(incoming.map(({ ordem, ...item }) => item))],
+            );
+            return incoming.map(({ ordem, ...item }) => item);
+          } catch (fallbackErr) {
+            fastify.log.error(fallbackErr);
+          }
         }
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao salvar servicos." });
+      } finally {
+        client.release();
       }
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao salvar servicos." });
-    } finally {
-      client.release();
-    }
-  });
+    },
+  );
 
   const VALID_CHAVES = ["home", "categorias", "servicos"];
 
@@ -2067,8 +2399,14 @@ function buildServer() {
         [chave],
       );
       if (!rows.length)
-        return reply.status(404).send({ error: "Configuração não encontrada." });
-      return { chave: rows[0].chave, valor: rows[0].valor, atualizado_em: rows[0].atualizado_em };
+        return reply
+          .status(404)
+          .send({ error: "Configuração não encontrada." });
+      return {
+        chave: rows[0].chave,
+        valor: rows[0].valor,
+        atualizado_em: rows[0].atualizado_em,
+      };
     } catch (err) {
       fastify.log.error(err);
       return reply.status(500).send({ error: "Erro ao buscar configuração." });
@@ -2076,36 +2414,89 @@ function buildServer() {
   });
 
   // PUT /configuracao/:chave
-  fastify.put("/configuracao/:chave", { preHandler: requireAdmin }, async (request, reply) => {
-    const { chave } = request.params;
-    if (!VALID_CHAVES.includes(chave))
-      return reply.status(400).send({ error: "Chave inválida." });
+  fastify.put(
+    "/configuracao/:chave",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { chave } = request.params;
+      if (!VALID_CHAVES.includes(chave))
+        return reply.status(400).send({ error: "Chave inválida." });
 
-    const valor = request.body;
-    try {
-      const { rows } = await pool.query(
-        `INSERT INTO configuracao (chave, valor, atualizado_em)
+      const valor = request.body;
+      try {
+        const { rows } = await pool.query(
+          `INSERT INTO configuracao (chave, valor, atualizado_em)
          VALUES ($1, $2::jsonb, NOW())
          ON CONFLICT (chave) DO UPDATE SET valor = $2::jsonb, atualizado_em = NOW()
          RETURNING chave, valor, atualizado_em`,
-        [chave, JSON.stringify(valor)],
-      );
-      return rows[0];
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: "Erro ao salvar configuração." });
-    }
-  });
+          [chave, JSON.stringify(valor)],
+        );
+        return rows[0];
+      } catch (err) {
+        fastify.log.error(err);
+        return reply
+          .status(500)
+          .send({ error: "Erro ao salvar configuração." });
+      }
+    },
+  );
 
   return fastify;
 }
 
 const fastify = buildServer();
 
+// ─── Jobs periódicos do WhatsApp CRM ──────────────────────────────────────────
+const WHATSAPP_EXPIRY_HOURS = 22;
+const WHATSAPP_PURGE_DAYS = 7;
+const WHATSAPP_JOB_INTERVAL_MS = 30 * 60 * 1000; // 30 min
+
+async function expireWhatsAppConversations() {
+  try {
+    const { rows: expired } = await pool.query(
+      `UPDATE public.whatsapp_conversations
+         SET status = 'closed', updated_at = NOW()
+       WHERE status <> 'closed'
+         AND last_message_at < NOW() - ($1 || ' hours')::interval
+       RETURNING id`,
+      [WHATSAPP_EXPIRY_HOURS],
+    );
+
+    const { rows: purged } = await pool.query(
+      `DELETE FROM public.whatsapp_conversations
+       WHERE status = 'closed'
+         AND updated_at < NOW() - ($1 || ' days')::interval
+       RETURNING id`,
+      [WHATSAPP_PURGE_DAYS],
+    );
+
+    if (expired.length || purged.length) {
+      fastify.log.info(
+        { expired: expired.length, purged: purged.length },
+        `[whatsapp-jobs] ${expired.length} conversas expiradas (closed), ${purged.length} apagadas permanentemente`,
+      );
+    }
+  } catch (err) {
+    if (err?.code === "42P01") return;
+    fastify.log.error(
+      { err },
+      "[whatsapp-jobs] erro ao processar expiração/purga",
+    );
+  }
+}
+
 function start() {
   fastify
     .listen({ port: PORT, host: "0.0.0.0" })
-    .then(() => fastify.log.info(`Servidor rodando na porta ${PORT}`))
+    .then(() => {
+      fastify.log.info(`Servidor rodando na porta ${PORT}`);
+
+      // Inicia jobs SÓ depois da API estar de pé
+      setTimeout(() => {
+        expireWhatsAppConversations();
+        setInterval(expireWhatsAppConversations, WHATSAPP_JOB_INTERVAL_MS);
+      }, 30 * 1000);
+    })
     .catch((err) => {
       fastify.log.error(err);
       process.exit(1);
