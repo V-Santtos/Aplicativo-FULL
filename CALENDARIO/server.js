@@ -1966,10 +1966,12 @@ function buildServer() {
         let conversation;
         const { rows: conversationRows } = await client.query(
           `SELECT id, status
-         FROM public.whatsapp_conversations
-         WHERE contact_id = $1 AND status <> 'closed'
-         ORDER BY created_at DESC
-         LIMIT 1`,
+          FROM public.whatsapp_conversations
+          WHERE contact_id = $1
+            AND status <> 'closed'
+            AND last_message_at > NOW() - INTERVAL '22 hours'
+          ORDER BY created_at DESC
+          LIMIT 1`,
           [contact.id],
         );
 
@@ -2051,9 +2053,9 @@ function buildServer() {
           lm.created_at AS last_message_created_at,
           COALESCE(uc.unread_count, 0) AS unread_count
           FROM public.whatsapp_conversations c
-          JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
-          WHERE c.status <> 'closed'
-          LEFT JOIN LATERAL (
+JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
+WHERE c.last_message_at > NOW() - INTERVAL '22 hours'
+LEFT JOIN LATERAL (
             SELECT direction, sender_type, message_type, body, created_at
             FROM public.whatsapp_messages m
             WHERE m.conversation_id = c.id
@@ -2446,57 +2448,10 @@ function buildServer() {
 
 const fastify = buildServer();
 
-// ─── Jobs periódicos do WhatsApp CRM ──────────────────────────────────────────
-const WHATSAPP_EXPIRY_HOURS = 22;
-const WHATSAPP_PURGE_DAYS = 7;
-const WHATSAPP_JOB_INTERVAL_MS = 30 * 60 * 1000; // 30 min
-
-async function expireWhatsAppConversations() {
-  try {
-    const { rows: expired } = await pool.query(
-      `UPDATE public.whatsapp_conversations
-         SET status = 'closed', updated_at = NOW()
-       WHERE status <> 'closed'
-         AND last_message_at < NOW() - ($1 || ' hours')::interval
-       RETURNING id`,
-      [WHATSAPP_EXPIRY_HOURS],
-    );
-
-    const { rows: purged } = await pool.query(
-      `DELETE FROM public.whatsapp_conversations
-       WHERE status = 'closed'
-         AND updated_at < NOW() - ($1 || ' days')::interval
-       RETURNING id`,
-      [WHATSAPP_PURGE_DAYS],
-    );
-
-    if (expired.length || purged.length) {
-      fastify.log.info(
-        { expired: expired.length, purged: purged.length },
-        `[whatsapp-jobs] ${expired.length} conversas expiradas (closed), ${purged.length} apagadas permanentemente`,
-      );
-    }
-  } catch (err) {
-    if (err?.code === "42P01") return;
-    fastify.log.error(
-      { err },
-      "[whatsapp-jobs] erro ao processar expiração/purga",
-    );
-  }
-}
-
 function start() {
   fastify
     .listen({ port: PORT, host: "0.0.0.0" })
-    .then(() => {
-      fastify.log.info(`Servidor rodando na porta ${PORT}`);
-
-      // Inicia jobs SÓ depois da API estar de pé
-      setTimeout(() => {
-        expireWhatsAppConversations();
-        setInterval(expireWhatsAppConversations, WHATSAPP_JOB_INTERVAL_MS);
-      }, 30 * 1000);
-    })
+    .then(() => fastify.log.info(`Servidor rodando na porta ${PORT}`))
     .catch((err) => {
       fastify.log.error(err);
       process.exit(1);
