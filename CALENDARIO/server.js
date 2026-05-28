@@ -2053,9 +2053,9 @@ function buildServer() {
           lm.created_at AS last_message_created_at,
           COALESCE(uc.unread_count, 0) AS unread_count
           FROM public.whatsapp_conversations c
-JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
-WHERE c.last_message_at > NOW() - INTERVAL '22 hours'
-LEFT JOIN LATERAL (
+          JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
+          WHERE c.last_message_at > NOW() - INTERVAL '22 hours'
+          LEFT JOIN LATERAL (
             SELECT direction, sender_type, message_type, body, created_at
             FROM public.whatsapp_messages m
             WHERE m.conversation_id = c.id
