@@ -1985,11 +1985,20 @@ function buildServer() {
             [conversation.id, event.occurred_at],
           );
         } else {
+          // Fecha conversas antigas open do mesmo contato (lazy expiration: a antiga
+          // expirou pela janela de 22h, mas a constraint UNIQUE impede 2 open simultâneas)
+          await client.query(
+            `UPDATE public.whatsapp_conversations
+              SET status = 'closed', updated_at = NOW()
+            WHERE contact_id = $1 AND status <> 'closed'`,
+            [contact.id],
+          );
+
           const { rows } = await client.query(
             `INSERT INTO public.whatsapp_conversations
-             (contact_id, status, last_message_at)
-           VALUES ($1, 'open', $2)
-           RETURNING id, status`,
+              (contact_id, status, last_message_at)
+            VALUES ($1, 'open', $2)
+            RETURNING id, status`,
             [contact.id, event.occurred_at],
           );
           conversation = rows[0];
