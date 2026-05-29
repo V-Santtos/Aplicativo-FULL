@@ -126,25 +126,27 @@ const DayKanban: React.FC<DayKanbanProps> = ({
                    ease-[cubic-bezier(0.25,0.1,0.25,1)]
                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20
                    ${isPresencial
-                     ? 'bg-amber-950/30 border-[#2a2a2a] cursor-default'
+                     ? 'border-[#2a2a2a] cursor-default'
                      : 'bg-[#1f1f1f] border-[#2a2a2a] cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.35)]'
                    }
                    ${isCompleting ? 'translate-y-2 opacity-0' : 'opacity-100'}`}
         style={{
-          borderLeftColor: isPresencial ? '#d97706' : profColor,
+          backgroundColor: isPresencial ? `${profColor}18` : undefined,
+          borderLeftColor: profColor,
           borderLeftWidth: '3px',
           borderLeftStyle: isPresencial ? 'dashed' : 'solid',
-          boxShadow: isPresencial ? '0 2px 8px rgba(217,119,6,0.12)' : `0 2px 8px ${profColor}14`,
+          boxShadow: `0 2px 8px ${profColor}${isPresencial ? '22' : '14'}`,
         }}
       >
         <div className="flex items-center justify-between mb-0.5">
           <p className="text-sm font-semibold leading-tight truncate"
-             style={{ color: isPresencial ? '#fbbf24' : '#ffffff' }}>
+             style={{ color: isPresencial ? profColor : '#ffffff' }}>
             {event.title}
           </p>
           {isPresencial && (
-            <span className="ml-2 flex-shrink-0 rounded-md bg-amber-500/15 px-1.5 py-0.5
-                             text-[9px] font-bold uppercase tracking-wider text-amber-400">
+            <span className="ml-2 flex-shrink-0 rounded-md px-1.5 py-0.5
+                             text-[9px] font-bold uppercase tracking-wider"
+                  style={{ backgroundColor: `${profColor}25`, color: profColor }}>
               presencial
             </span>
           )}
@@ -156,7 +158,7 @@ const DayKanban: React.FC<DayKanbanProps> = ({
 
         <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2">
           {isPresencial ? (
-            <UserCheck size={11} className="flex-shrink-0 text-amber-600" />
+            <UserCheck size={11} className="flex-shrink-0" style={{ color: profColor }} />
           ) : (
             <Scissors size={11} className="flex-shrink-0 text-gray-600" />
           )}
@@ -174,11 +176,8 @@ const DayKanban: React.FC<DayKanbanProps> = ({
           className={`mt-1 w-full rounded-lg py-1.5 text-xs font-semibold text-white
                      transition-colors disabled:opacity-60
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30
-                     ${isPresencial
-                       ? 'bg-amber-600 hover:bg-amber-500'
-                       : 'bg-[#6B3EFF] hover:bg-[#825CFF]'
-                     }`}
-        >
+                     ${!isPresencial ? 'bg-[#6B3EFF] hover:bg-[#825CFF]' : ''}`}
+          style={isPresencial ? { backgroundColor: profColor } : undefined}
           Marcar como Feito
         </button>
       </div>
