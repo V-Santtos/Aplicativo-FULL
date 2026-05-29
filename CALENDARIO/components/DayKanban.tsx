@@ -178,6 +178,7 @@ const DayKanban: React.FC<DayKanbanProps> = ({
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30
                      ${!isPresencial ? 'bg-[#6B3EFF] hover:bg-[#825CFF]' : ''}`}
           style={isPresencial ? { backgroundColor: profColor } : undefined}
+        >
           Marcar como Feito
         </button>
       </div>
