@@ -74,8 +74,6 @@ const mockMessages: Record<number, Message[]> = {
   ],
 };
 
-const [sending, setSending] = useState(false);
-
 interface Props {
   conversation: Conversation;
   onClose: () => void;
@@ -84,6 +82,7 @@ interface Props {
 const WhatsAppPanel: React.FC<Props> = ({ conversation, onClose }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

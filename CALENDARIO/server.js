@@ -2159,11 +2159,9 @@ function buildServer() {
 
       const webhookUrl = process.env.N8N_SEND_WEBHOOK_URL;
       if (!webhookUrl) {
-        return reply
-          .status(503)
-          .send({
-            error: "Envio não configurado (N8N_SEND_WEBHOOK_URL ausente).",
-          });
+        return reply.status(503).send({
+          error: "Envio não configurado (N8N_SEND_WEBHOOK_URL ausente).",
+        });
       }
 
       const client = await pool.connect();
