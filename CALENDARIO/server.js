@@ -2147,6 +2147,97 @@ function buildServer() {
     },
   );
 
+  // POST /whatsapp/conversations/:id/send — atendente responde via n8n → Evolution
+  fastify.post(
+    "/whatsapp/conversations/:id/send",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params;
+      const text = String(request.body?.body ?? "").trim();
+
+      if (!text) return reply.status(400).send({ error: "Mensagem vazia." });
+
+      const webhookUrl = process.env.N8N_SEND_WEBHOOK_URL;
+      if (!webhookUrl) {
+        return reply
+          .status(503)
+          .send({
+            error: "Envio não configurado (N8N_SEND_WEBHOOK_URL ausente).",
+          });
+      }
+
+      const client = await pool.connect();
+      try {
+        // Resolve telefone do contato a partir da conversa
+        const { rows: convRows } = await client.query(
+          `SELECT c.id AS conversation_id, c.contact_id, ct.phone, ct.wa_id
+             FROM public.whatsapp_conversations c
+             JOIN public.whatsapp_contacts ct ON ct.id = c.contact_id
+            WHERE c.id = $1`,
+          [id],
+        );
+        if (!convRows.length)
+          return reply.status(404).send({ error: "Conversa não encontrada." });
+        const conv = convRows[0];
+
+        // 1) Dispara o envio no n8n. Só grava se o n8n aceitar (2xx).
+        const waResp = await fetch(webhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(process.env.N8N_SEND_TOKEN
+              ? { "x-webhook-token": process.env.N8N_SEND_TOKEN }
+              : {}),
+          },
+          body: JSON.stringify({
+            conversation_id: conv.conversation_id,
+            telefone: conv.phone,
+            wa_id: conv.wa_id,
+            mensagem: text,
+          }),
+        });
+
+        if (!waResp.ok) {
+          const detail = await waResp.text().catch(() => "");
+          fastify.log.error(
+            { status: waResp.status, detail },
+            "Falha no webhook de envio",
+          );
+          return reply
+            .status(502)
+            .send({ error: "Falha ao enviar pelo WhatsApp (n8n/Evolution)." });
+        }
+
+        // 2) Grava como outbound (aparece na thread). raw_payload '{}' por segurança de schema.
+        const { rows: msgRows } = await client.query(
+          `INSERT INTO public.whatsapp_messages
+             (conversation_id, contact_id, direction, sender_type, message_type,
+              body, raw_payload, created_at, received_at, read_at)
+           VALUES ($1, $2, 'outbound', 'human', 'text', $3, '{}'::jsonb, NOW(), NOW(), NOW())
+           RETURNING id, conversation_id, contact_id, direction, sender_type,
+                     whatsapp_message_id, message_type, body, media_id, status,
+                     created_at, received_at`,
+          [conv.conversation_id, conv.contact_id, text],
+        );
+
+        // 3) Mantém a conversa viva (não expira pela janela de 22h)
+        await client.query(
+          `UPDATE public.whatsapp_conversations
+              SET last_message_at = NOW(), updated_at = NOW()
+            WHERE id = $1`,
+          [conv.conversation_id],
+        );
+
+        return reply.status(201).send(mapWhatsAppMessage(msgRows[0]));
+      } catch (err) {
+        fastify.log.error(err);
+        return reply.status(500).send({ error: "Erro ao enviar mensagem." });
+      } finally {
+        client.release();
+      }
+    },
+  );
+
   // DELETE /whatsapp/memory - limpa somente o buffer temporario de testes
   fastify.delete("/whatsapp/memory", { preHandler: requireAdmin }, async () => {
     whatsappMemory.contacts.clear();
