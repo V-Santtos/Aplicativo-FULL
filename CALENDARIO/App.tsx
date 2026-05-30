@@ -1,17 +1,17 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import CalendarHeader from './components/CalendarHeader';
-import CalendarGrid from './components/CalendarGrid';
-import Sidebar from './components/Sidebar';
-import { useCalendar } from './hooks/useCalendar';
-import type { Event, Professional, CalendarView } from './types';
-import EventModal from './components/EventModal';
-import WeekView from './components/WeekView';
-import DayView from './components/DayView';
-import DayKanban from './components/DayKanban';
-import EventPopover from './components/EventPopover';
-import LoginScreen, { type OwnerSession } from './components/LoginScreen';
-import AgendaSettingsModal from './components/AgendaSettingsModal';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import CalendarHeader from "./components/CalendarHeader";
+import CalendarGrid from "./components/CalendarGrid";
+import Sidebar from "./components/Sidebar";
+import { useCalendar } from "./hooks/useCalendar";
+import type { Event, Professional, CalendarView } from "./types";
+import EventModal from "./components/EventModal";
+import WeekView from "./components/WeekView";
+import DayView from "./components/DayView";
+import DayKanban from "./components/DayKanban";
+import EventPopover from "./components/EventPopover";
+import LoginScreen, { type OwnerSession } from "./components/LoginScreen";
+import AgendaSettingsModal from "./components/AgendaSettingsModal";
 import {
   getEvents,
   createEvent,
@@ -24,13 +24,13 @@ import {
   deleteProfessional,
   getAvailableSlots,
   getAgendaConfig,
-} from './services/calendarApi';
-import PresencialFAB from './components/PresencialFAB';
-import MobileBottomNav, { type MobileTab } from './components/MobileBottomNav';
-import HamburgerPanel from './components/HamburgerPanel';
-import { useMediaQuery } from './hooks/useMediaQuery';
+} from "./services/calendarApi";
+import PresencialFAB from "./components/PresencialFAB";
+import MobileBottomNav, { type MobileTab } from "./components/MobileBottomNav";
+import HamburgerPanel from "./components/HamburgerPanel";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 
-const OWNER_SESSION_KEY = 'barbearia-calendar-owner-session';
+const OWNER_SESSION_KEY = "barbearia-calendar-owner-session";
 
 const readSession = (): OwnerSession | null => {
   try {
@@ -44,49 +44,66 @@ const readSession = (): OwnerSession | null => {
 };
 
 const toMinutes = (time: string) => {
-  const [hours, minutes] = time.split(':').map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
 };
 
 function normalizeProf(p: Professional): Professional {
   return {
     ...p,
-    name: p.name || p.nome || '',
-    color: p.color || p.cor || '#888888',
+    name: p.name || p.nome || "",
+    color: p.color || p.cor || "#888888",
   };
 }
 
 function phoneToWhatsAppUrl(phone: string) {
-  const digits = phone.replace(/\D/g, '');
-  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const digits = phone.replace(/\D/g, "");
+  const normalized = digits.startsWith("55") ? digits : `55${digits}`;
   return `https://wa.me/${normalized}`;
 }
 
 function App() {
-  const [ownerSession, setOwnerSession] = useState<OwnerSession | null>(readSession);
-  const [view, setView] = useState<CalendarView>('month');
-  const isMobile = useMediaQuery('(max-width: 767px)');
-  const [mobileTab, setMobileTab] = useState<MobileTab>('calendar');
-  const [viewMode, setViewMode] = useState<'timeline' | 'kanban'>('timeline');
+  const [ownerSession, setOwnerSession] = useState<OwnerSession | null>(
+    readSession,
+  );
+  const [view, setView] = useState<CalendarView>("month");
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("calendar");
+  const [viewMode, setViewMode] = useState<"timeline" | "kanban">("timeline");
   const [appReady, setAppReady] = useState(false);
 
-  const { currentDate, days, weekdays, week, goToNext, goToPrev, goToToday, setDate } =
-    useCalendar(new Date(), view);
+  const {
+    currentDate,
+    days,
+    weekdays,
+    week,
+    goToNext,
+    goToPrev,
+    goToToday,
+    setDate,
+  } = useCalendar(new Date(), view);
 
   const [events, setEvents] = useState<Event[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [selectedProfessionals, setSelectedProfessionals] = useState<Set<number>>(new Set());
+  const [selectedProfessionals, setSelectedProfessionals] = useState<
+    Set<number>
+  >(new Set());
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
-  const [settingsProfessional, setSettingsProfessional] = useState<Professional | null>(null);
+  const [settingsProfessional, setSettingsProfessional] =
+    useState<Professional | null>(null);
 
   // presencialIds: professionalId → bookingId do agendamento presencial ativo
   // presencialIntervals: professionalId → intervalo_duracao_min do profissional
-  const [presencialIds, setPresencialIds] = useState<Map<number, number>>(new Map());
-  const [presencialIntervals, setPresencialIntervals] = useState<Map<number, number>>(new Map());
+  const [presencialIds, setPresencialIds] = useState<Map<number, number>>(
+    new Map(),
+  );
+  const [presencialIntervals, setPresencialIntervals] = useState<
+    Map<number, number>
+  >(new Map());
   const [presencialLoading, setPresencialLoading] = useState(false);
 
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -97,21 +114,24 @@ function App() {
     touchStartX.current = e.touches[0].clientX;
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(dx) < 60 || view !== 'month') return;
-    dx < 0 ? goToNext() : goToPrev();
-  }, [view, goToNext, goToPrev]);
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (touchStartX.current === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      touchStartX.current = null;
+      if (Math.abs(dx) < 60 || view !== "month") return;
+      dx < 0 ? goToNext() : goToPrev();
+    },
+    [view, goToNext, goToPrev],
+  );
 
   // Inicializa view mobile como Kanban/Dia na primeira montagem
   const mobileViewInitialized = useRef(false);
   useEffect(() => {
     if (isMobile && !mobileViewInitialized.current) {
       mobileViewInitialized.current = true;
-      setView('day');
-      setViewMode('kanban');
+      setView("day");
+      setViewMode("kanban");
     }
   }, [isMobile]);
 
@@ -122,7 +142,7 @@ function App() {
     const check = () => {
       const now = new Date();
       const nowMins = now.getHours() * 60 + now.getMinutes();
-      const today = now.toLocaleDateString('en-CA');
+      const today = now.toLocaleDateString("en-CA");
       const next = new Map(presencialIds);
       const nextIntervals = new Map(presencialIntervals);
       const expiredBookingIds: number[] = [];
@@ -137,10 +157,16 @@ function App() {
         };
 
         const evt = events.find((e) => e.id === bookingId);
-        if (!evt) { expire(); continue; }
-        if (evt.date !== today) { expire(); continue; }
+        if (!evt) {
+          expire();
+          continue;
+        }
+        if (evt.date !== today) {
+          expire();
+          continue;
+        }
         if (evt.endTime) {
-          const [h, m] = evt.endTime.split(':').map(Number);
+          const [h, m] = evt.endTime.split(":").map(Number);
           const intervalMin = presencialIntervals.get(profId) ?? 0;
           if (nowMins >= h * 60 + m - intervalMin) expire();
         }
@@ -150,11 +176,19 @@ function App() {
 
       setPresencialIds(next);
       setPresencialIntervals(nextIntervals);
-      setEvents((prev) => prev.filter((event) => !expiredBookingIds.includes(event.id)));
-      void Promise.allSettled(expiredBookingIds.map((bookingId) => deleteEvent(bookingId))).then((results) => {
+      setEvents((prev) =>
+        prev.filter((event) => !expiredBookingIds.includes(event.id)),
+      );
+      void Promise.allSettled(
+        expiredBookingIds.map((bookingId) => deleteEvent(bookingId)),
+      ).then((results) => {
         results.forEach((result, index) => {
-          if (result.status === 'rejected') {
-            console.error('Erro ao remover atendimento presencial expirado:', expiredBookingIds[index], result.reason);
+          if (result.status === "rejected") {
+            console.error(
+              "Erro ao remover atendimento presencial expirado:",
+              expiredBookingIds[index],
+              result.reason,
+            );
           }
         });
       });
@@ -165,11 +199,64 @@ function App() {
     return () => clearInterval(id);
   }, [presencialIds, presencialIntervals, events]);
 
+  // Auto-conclusão: marca 'concluido' (e some do front) quando o horário de
+  // término já passou. Usa o endTime calculado pelo backend (duração do PROFISSIONAL).
+  // Não-destrutivo: registro permanece no banco como histórico/CRM.
+  useEffect(() => {
+    const ATIVOS = new Set(["agendado", "confirmado"]);
+
+    const check = () => {
+      const now = new Date();
+      const today = now.toLocaleDateString("en-CA"); // 'YYYY-MM-DD'
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+
+      const expirados = events.filter((evt) => {
+        if (!evt.status || !ATIVOS.has(evt.status)) return false; // só ativos
+        if (!evt.endTime) return false; // sem fim calculável
+        if (evt.date > today) return false; // futuro: ignora
+        if (evt.date < today) return true; // dia passado: já terminou
+        const [h, m] = evt.endTime.split(":").map(Number); // hoje: compara horário
+        return nowMins >= h * 60 + m;
+      });
+
+      if (expirados.length === 0) return;
+
+      const ids = expirados.map((e) => e.id);
+      // Otimista: esconde já (filteredEvents exclui 'concluido')
+      setEvents((prev) =>
+        prev.map((e) =>
+          ids.includes(e.id) ? { ...e, status: "concluido" } : e,
+        ),
+      );
+      // Persiste no banco
+      void Promise.allSettled(
+        ids.map((id) => updateEventStatus(id, "concluido")),
+      ).then((results) => {
+        results.forEach((r, i) => {
+          if (r.status === "rejected") {
+            console.error(
+              "Erro ao concluir agendamento expirado:",
+              ids[i],
+              r.reason,
+            );
+          }
+        });
+      });
+    };
+
+    check();
+    const id = setInterval(check, 60_000); // re-checa a cada 60s
+    return () => clearInterval(id);
+  }, [events]);
+
   const [popoverEvent, setPopoverEvent] = useState<Event | null>(null);
-  const [popoverAnchor, setPopoverAnchor] = useState<{ x: number; y: number } | null>(null);
-  const [popoverProfessional, setPopoverProfessional] = useState<Professional | undefined>(
-    undefined
-  );
+  const [popoverAnchor, setPopoverAnchor] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [popoverProfessional, setPopoverProfessional] = useState<
+    Professional | undefined
+  >(undefined);
 
   // Carrega dados da API ao fazer login
   useEffect(() => {
@@ -185,20 +272,20 @@ function App() {
         setProfessionals(normalized);
         setSelectedProfessionals(new Set(normalized.map((p) => p.id)));
         const evts = await getEvents().catch((err) => {
-          console.error('Erro ao carregar agendamentos:', err);
+          console.error("Erro ao carregar agendamentos:", err);
           return [];
         });
         if (cancelled) return;
         setEvents(evts);
 
         // Restaura presencial ativo após F5: busca eventos de hoje com source='presencial'
-        const today = new Date().toLocaleDateString('en-CA');
+        const today = new Date().toLocaleDateString("en-CA");
         const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
 
         // Coleta candidatos (sem checar expiração ainda — precisa do intervalo primeiro)
         const candidates = new Map<number, number>(); // profId → bookingId
         for (const evt of evts) {
-          if (evt.source !== 'presencial' || evt.date !== today) continue;
+          if (evt.source !== "presencial" || evt.date !== today) continue;
           if (evt.professionalId) candidates.set(evt.professionalId, evt.id);
         }
 
@@ -223,7 +310,7 @@ function App() {
             const evt = evts.find((e) => e.id === bookingId);
             if (!evt) continue;
             if (evt.endTime) {
-              const [h, m] = evt.endTime.split(':').map(Number);
+              const [h, m] = evt.endTime.split(":").map(Number);
               const intervalMin = intervalsMap.get(profId) ?? 0;
               if (nowMins >= h * 60 + m - intervalMin) {
                 expiredBookingIds.push(bookingId);
@@ -234,11 +321,19 @@ function App() {
           }
 
           if (expiredBookingIds.length > 0) {
-            setEvents((prev) => prev.filter((event) => !expiredBookingIds.includes(event.id)));
-            void Promise.allSettled(expiredBookingIds.map((bookingId) => deleteEvent(bookingId))).then((results) => {
+            setEvents((prev) =>
+              prev.filter((event) => !expiredBookingIds.includes(event.id)),
+            );
+            void Promise.allSettled(
+              expiredBookingIds.map((bookingId) => deleteEvent(bookingId)),
+            ).then((results) => {
               results.forEach((result, index) => {
-                if (result.status === 'rejected') {
-                  console.error('Erro ao remover atendimento presencial expirado:', expiredBookingIds[index], result.reason);
+                if (result.status === "rejected") {
+                  console.error(
+                    "Erro ao remover atendimento presencial expirado:",
+                    expiredBookingIds[index],
+                    result.reason,
+                  );
                 }
               });
             });
@@ -251,8 +346,8 @@ function App() {
         }
       } catch (err) {
         if (cancelled) return;
-        console.error('Erro ao carregar dados:', err);
-        window.alert('Não foi possível conectar à API. Verifique sua conexão.');
+        console.error("Erro ao carregar dados:", err);
+        window.alert("Não foi possível conectar à API. Verifique sua conexão.");
       } finally {
         if (!cancelled) setAppReady(true);
       }
@@ -260,38 +355,47 @@ function App() {
 
     load();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [ownerSession]);
 
   const handleViewChange = (newView: CalendarView) => {
     setView(newView);
-    if (isMobile && newView === 'day') setViewMode('kanban');
+    if (isMobile && newView === "day") setViewMode("kanban");
   };
 
   const handleProfessionalToggle = useCallback((professionalId: number) => {
     setSelectedProfessionals((prev) => {
       const next = new Set(prev);
-      next.has(professionalId) ? next.delete(professionalId) : next.add(professionalId);
+      next.has(professionalId)
+        ? next.delete(professionalId)
+        : next.add(professionalId);
       return next;
     });
   }, []);
 
   const filteredEvents = events.filter(
     (event) =>
-      event.status !== 'concluido' && selectedProfessionals.has(event.professionalId!)
+      event.status !== "concluido" &&
+      selectedProfessionals.has(event.professionalId!),
   );
 
-  const handleSaveEvent = async (eventData: Omit<Event, 'id'> & { id?: number }) => {
+  const handleSaveEvent = async (
+    eventData: Omit<Event, "id"> & { id?: number },
+  ) => {
     const start = toMinutes(eventData.startTime);
     const end = toMinutes(eventData.endTime);
 
     if (end <= start) {
-      window.alert('O horário de término precisa ser maior que o horário de início.');
+      window.alert(
+        "O horário de término precisa ser maior que o horário de início.",
+      );
       return;
     }
 
     const hasConflict = events.some((event) => {
-      if (event.status === 'concluido') return false;
+      if (event.status === "concluido") return false;
       if (event.id === eventData.id) return false;
       if (event.date !== eventData.date) return false;
       if (event.professionalId !== eventData.professionalId) return false;
@@ -301,31 +405,36 @@ function App() {
     });
 
     if (hasConflict) {
-      window.alert('Já existe um agendamento para esse profissional neste horário.');
+      window.alert(
+        "Já existe um agendamento para esse profissional neste horário.",
+      );
       return;
     }
 
-    const professional = professionals.find((p) => p.id === eventData.professionalId);
+    const professional = professionals.find(
+      (p) => p.id === eventData.professionalId,
+    );
     if (!professional) return;
 
     // Tenta extrair telefone e serviço da descrição se existirem
-    const desc = eventData.description || '';
+    const desc = eventData.description || "";
     const phoneMatch = desc.match(/Telefone:\s*([^\n]+)/);
     const serviceMatch = desc.match(/Servi[cç]o:\s*([^\n]+)/i);
-    const telefone = phoneMatch ? phoneMatch[1].trim() : '';
-    const servico = serviceMatch ? serviceMatch[1].trim() : '';
-    const whatsappUrl = telefone ? phoneToWhatsAppUrl(telefone) : '';
+    const telefone = phoneMatch ? phoneMatch[1].trim() : "";
+    const servico = serviceMatch ? serviceMatch[1].trim() : "";
+    const whatsappUrl = telefone ? phoneToWhatsAppUrl(telefone) : "";
 
-    const descFinal = [
-      servico ? `Servico: ${servico}` : null,
-      telefone ? `Telefone: ${telefone}` : null,
-      whatsappUrl ? `WhatsApp: ${whatsappUrl}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n') || desc;
+    const descFinal =
+      [
+        servico ? `Servico: ${servico}` : null,
+        telefone ? `Telefone: ${telefone}` : null,
+        whatsappUrl ? `WhatsApp: ${whatsappUrl}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n") || desc;
 
     try {
-      if (typeof eventData.id === 'number') {
+      if (typeof eventData.id === "number") {
         const updated = await updateEvent(eventData.id, {
           telefone,
           cliente: eventData.title,
@@ -334,7 +443,9 @@ function App() {
           dia_marcado: eventData.date,
           hora_marcada: eventData.startTime,
         });
-        setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+        setEvents((prev) =>
+          prev.map((e) => (e.id === updated.id ? updated : e)),
+        );
       } else {
         const created = await createEvent({
           telefone,
@@ -343,7 +454,7 @@ function App() {
           servico,
           dia_marcado: eventData.date,
           hora_marcada: eventData.startTime,
-          source: 'calendario-admin',
+          source: "calendario-admin",
         });
         setEvents((prev) => [
           ...prev,
@@ -354,7 +465,9 @@ function App() {
       setEditingEvent(null);
     } catch (err) {
       console.error(err);
-      window.alert('Erro ao salvar agendamento. Verifique a conexão com a API.');
+      window.alert(
+        "Erro ao salvar agendamento. Verifique a conexão com a API.",
+      );
     }
   };
 
@@ -364,7 +477,7 @@ function App() {
       setEvents((prev) => prev.filter((e) => e.id !== eventId));
     } catch (err) {
       console.error(err);
-      window.alert('Erro ao deletar agendamento.');
+      window.alert("Erro ao deletar agendamento.");
     }
     setIsModalOpen(false);
     setEditingEvent(null);
@@ -372,17 +485,20 @@ function App() {
 
   const handleCompleteEvent = async (eventId: number) => {
     try {
-      await updateEventStatus(eventId, 'concluido');
+      await updateEventStatus(eventId, "concluido");
       setEvents((prev) =>
-        prev.map((e) => (e.id === eventId ? { ...e, status: 'concluido' } : e))
+        prev.map((e) => (e.id === eventId ? { ...e, status: "concluido" } : e)),
       );
     } catch (err) {
       console.error(err);
-      window.alert('Erro ao marcar como concluído.');
+      window.alert("Erro ao marcar como concluído.");
     }
   };
 
-  const handleAddProfessional = async (name: string, color: string): Promise<Professional | null> => {
+  const handleAddProfessional = async (
+    name: string,
+    color: string,
+  ): Promise<Professional | null> => {
     try {
       const prof = await createProfessional(name, color);
       const normalized = normalizeProf(prof);
@@ -391,7 +507,7 @@ function App() {
       return normalized;
     } catch (err) {
       console.error(err);
-      window.alert('Erro ao adicionar profissional.');
+      window.alert("Erro ao adicionar profissional.");
       return null;
     }
   };
@@ -408,7 +524,7 @@ function App() {
       });
     } catch (err) {
       console.error(err);
-      window.alert('Erro ao remover profissional.');
+      window.alert("Erro ao remover profissional.");
     }
   };
 
@@ -419,7 +535,9 @@ function App() {
 
   const handleChangeProfessionalColor = async (id: number, color: string) => {
     // Optimistic update
-    setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, color } : p)));
+    setProfessionals((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, color } : p)),
+    );
     try {
       await updateProfessional(id, { color });
     } catch (err) {
@@ -436,11 +554,16 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const handleEventClick = (event: Event, anchor?: { x: number; y: number }) => {
+  const handleEventClick = (
+    event: Event,
+    anchor?: { x: number; y: number },
+  ) => {
     if (anchor) {
       setPopoverEvent(event);
       setPopoverAnchor(anchor);
-      setPopoverProfessional(professionals.find((p) => p.id === event.professionalId));
+      setPopoverProfessional(
+        professionals.find((p) => p.id === event.professionalId),
+      );
       return;
     }
     setEditingEvent(event);
@@ -462,13 +585,15 @@ function App() {
   const handlePresencialActivate = async (prof: Professional) => {
     setPresencialLoading(true);
     try {
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = new Date().toLocaleDateString("en-CA");
       const [slots, agendaConfig] = await Promise.all([
         getAvailableSlots(prof.id, today),
         getAgendaConfig(prof.id),
       ]);
       if (!slots.length) {
-        window.alert(`A API respondeu, mas nao ha horario disponivel hoje (${today}) para bloquear para ${prof.name}.`);
+        window.alert(
+          `A API respondeu, mas nao ha horario disponivel hoje (${today}) para bloquear para ${prof.name}.`,
+        );
         return;
       }
       /*
@@ -476,13 +601,13 @@ function App() {
       */
       const nextSlot = slots[0];
       const created = await createEvent({
-        cliente: 'Atendimento Presencial',
+        cliente: "Atendimento Presencial",
         profissional: prof.name,
         dia_marcado: today,
         hora_marcada: nextSlot,
-        telefone: '',
-        servico: 'Presencial',
-        source: 'presencial',
+        telefone: "",
+        servico: "Presencial",
+        source: "presencial",
       });
       const intervalMin = agendaConfig.intervalo_duracao_min ?? 0;
       // POST não retorna professional_id (sem JOIN), sobrescreve com prof.id correto
@@ -490,8 +615,13 @@ function App() {
       setPresencialIds((prev) => new Map(prev).set(prof.id, created.id));
       setPresencialIntervals((prev) => new Map(prev).set(prof.id, intervalMin));
     } catch (err) {
-      console.error('Erro no FAB presencial ao consultar/criar agendamento:', err);
-      window.alert('Erro ao registrar atendimento presencial. Verifique se a API da porta 3333 esta ativa.');
+      console.error(
+        "Erro no FAB presencial ao consultar/criar agendamento:",
+        err,
+      );
+      window.alert(
+        "Erro ao registrar atendimento presencial. Verifique se a API da porta 3333 esta ativa.",
+      );
     } finally {
       setPresencialLoading(false);
     }
@@ -518,10 +648,13 @@ function App() {
     try {
       await deleteEvent(bookingId);
     } catch (err: any) {
-      const msg: string = err?.message ?? '';
+      const msg: string = err?.message ?? "";
       // 404 = evento já não existe no banco, sem problema
-      if (!msg.includes('não encontrado') && !msg.includes('404')) {
-        console.error('Erro ao remover agendamento presencial do servidor:', err);
+      if (!msg.includes("não encontrado") && !msg.includes("404")) {
+        console.error(
+          "Erro ao remover agendamento presencial do servidor:",
+          err,
+        );
       }
     } finally {
       setPresencialLoading(false);
@@ -550,14 +683,14 @@ function App() {
 
   const renderView = () => {
     switch (view) {
-      case 'day':
-        return viewMode === 'kanban' ? (
+      case "day":
+        return viewMode === "kanban" ? (
           <motion.div
             key="kanban"
             className="flex-1 min-h-0"
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
           >
             <DayKanban
               currentDate={currentDate}
@@ -579,7 +712,7 @@ function App() {
           />
         );
 
-      case 'week':
+      case "week":
         return (
           <WeekView
             week={week}
@@ -590,7 +723,7 @@ function App() {
           />
         );
 
-      case 'month':
+      case "month":
       default:
         return (
           <CalendarGrid
@@ -615,7 +748,7 @@ function App() {
         <motion.div
           key="login"
           className="h-screen w-screen"
-          exit={{ opacity: 0, filter: 'blur(10px)', scale: 1.02 }}
+          exit={{ opacity: 0, filter: "blur(10px)", scale: 1.02 }}
           transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
         >
           <LoginScreen onLogin={handleLogin} />
@@ -628,8 +761,8 @@ function App() {
           className="h-screen w-screen bg-[#0e0e10] flex flex-col items-center justify-center gap-3"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, filter: 'blur(8px)' }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          exit={{ opacity: 0, filter: "blur(8px)" }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-[#6B3EFF]" />
           <span className="text-sm text-white/70">Carregando dados...</span>
@@ -640,13 +773,14 @@ function App() {
         <motion.div
           key="app"
           className="flex h-screen overflow-hidden bg-background font-sans text-foreground"
-          initial={{ opacity: 0, filter: 'blur(8px)', y: 6 }}
-          animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+          initial={{ opacity: 0, filter: "blur(8px)", y: 6 }}
+          animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         >
-
           <Sidebar
-            onAddEvent={() => openModalWithDate(new Date().toLocaleDateString('en-CA'))}
+            onAddEvent={() =>
+              openModalWithDate(new Date().toLocaleDateString("en-CA"))
+            }
             professionals={professionals}
             selectedProfessionals={selectedProfessionals}
             onProfessionalToggle={handleProfessionalToggle}
@@ -656,8 +790,10 @@ function App() {
             onOpenSettings={handleOpenSettings}
             currentDate={currentDate}
             onDateChange={setDate}
-            mobilePanel={isMobile && mobileTab === 'conversations' ? 'conversations' : null}
-            onCloseMobilePanel={() => setMobileTab('calendar')}
+            mobilePanel={
+              isMobile && mobileTab === "conversations" ? "conversations" : null
+            }
+            onCloseMobilePanel={() => setMobileTab("calendar")}
             externalShowAddModal={showAddProfModal}
             onExternalAddModalClose={() => setShowAddProfModal(false)}
           />
@@ -672,7 +808,9 @@ function App() {
               viewMode={viewMode}
               onViewChange={handleViewChange}
               onToggleKanban={() =>
-                setViewMode((prev) => (prev === 'timeline' ? 'kanban' : 'timeline'))
+                setViewMode((prev) =>
+                  prev === "timeline" ? "kanban" : "timeline",
+                )
               }
               owner={ownerSession}
               onLogout={handleLogout}
@@ -689,7 +827,9 @@ function App() {
             >
               <div
                 className={`flex-1 flex flex-col min-h-0 ${
-                  view === 'month' || view === 'week' || viewMode === 'kanban' ? 'overflow-hidden' : 'overflow-y-auto'
+                  view === "month" || view === "week" || viewMode === "kanban"
+                    ? "overflow-hidden"
+                    : "overflow-y-auto"
                 }`}
               >
                 {renderView()}
@@ -738,21 +878,23 @@ function App() {
             eventToEdit={editingEvent}
           />
 
-          <MobileBottomNav
-            tab={mobileTab}
-            onChange={setMobileTab}
-          />
+          <MobileBottomNav tab={mobileTab} onChange={setMobileTab} />
 
           <HamburgerPanel
             open={hamburgerOpen}
             onClose={() => setHamburgerOpen(false)}
-            onAddEvent={() => openModalWithDate(new Date().toLocaleDateString('en-CA'))}
+            onAddEvent={() =>
+              openModalWithDate(new Date().toLocaleDateString("en-CA"))
+            }
             view={view}
             onViewChange={handleViewChange}
             professionals={professionals}
             selectedProfessionals={selectedProfessionals}
             onProfessionalToggle={handleProfessionalToggle}
-            onAddProfessionalRequest={() => { setHamburgerOpen(false); setShowAddProfModal(true); }}
+            onAddProfessionalRequest={() => {
+              setHamburgerOpen(false);
+              setShowAddProfModal(true);
+            }}
             onDeleteProfessional={handleDeleteProfessional}
             onChangeProfessionalColor={handleChangeProfessionalColor}
             onOpenSettings={handleOpenSettings}
