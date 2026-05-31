@@ -21,6 +21,7 @@ import {
   type AgendaConfig,
 } from "../services/calendarApi";
 import TimeSelect from "./ui/TimeSelect";
+import { usePolling } from "../hooks/usePolling";
 
 const mockConversations: Conversation[] = [
   {
@@ -308,25 +309,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [addingSaving, setAddingSaving] = useState(false);
   const [agendaFeedback, setAgendaFeedback] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadConversations() {
-      try {
-        const data = await getWhatsAppConversations();
-        if (!cancelled) setConversations(data.map(toConversation));
-      } catch (err) {
-        console.error("Erro ao carregar conversas:", err);
-      }
-    }
-
-    loadConversations();
-    const interval = window.setInterval(loadConversations, 4000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, []);
+  usePolling(
+    async () => {
+      const data = await getWhatsAppConversations();
+      setConversations(data.map(toConversation));
+    },
+    { intervalMs: 8000 },
+    [],
+  );
 
   useEffect(() => {
     if (externalShowAddModal) setShowAddModal(true);

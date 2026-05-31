@@ -6,6 +6,7 @@ import {
   getWhatsAppMessages,
   sendWhatsAppMessage,
 } from "../services/calendarApi";
+import { usePolling } from "../hooks/usePolling";
 
 export interface Conversation {
   id: number;
@@ -89,46 +90,39 @@ const WhatsAppPanel: React.FC<Props> = ({ conversation, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation.id, messages.length]);
 
+  // Ao trocar de conversa, semeia o preview imediatamente. O polling abaixo
+  // substitui pelo histórico real assim que carrega. Se o carregamento falhar
+  // (ex.: 429), o usuário continua vendo o preview em vez de uma tela vazia,
+  // e mensagens já carregadas NUNCA são apagadas por um erro transitório.
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadMessages() {
-      try {
-        const data = await getWhatsAppMessages(conversation.id);
-        if (cancelled) return;
-        setMessages(
-          data.map((message) => ({
-            id: message.id,
-            text: message.body || `[${message.message_type}]`,
-            fromMe: message.direction === "outbound",
-            time: new Date(message.created_at).toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          })),
-        );
-      } catch (err) {
-        console.error("Erro ao carregar mensagens:", err);
-        if (!cancelled) {
-          setMessages([
-            {
-              id: 1,
-              text: conversation.preview,
-              fromMe: false,
-              time: conversation.time,
-            },
-          ]);
-        }
-      }
-    }
-
-    loadMessages();
-    const interval = window.setInterval(loadMessages, 4000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
+    setMessages([
+      {
+        id: 1,
+        text: conversation.preview,
+        fromMe: false,
+        time: conversation.time,
+      },
+    ]);
   }, [conversation.id, conversation.preview, conversation.time]);
+
+  usePolling(
+    async () => {
+      const data = await getWhatsAppMessages(conversation.id);
+      setMessages(
+        data.map((message) => ({
+          id: message.id,
+          text: message.body || `[${message.message_type}]`,
+          fromMe: message.direction === "outbound",
+          time: new Date(message.created_at).toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        })),
+      );
+    },
+    { intervalMs: 5000 },
+    [conversation.id],
+  );
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

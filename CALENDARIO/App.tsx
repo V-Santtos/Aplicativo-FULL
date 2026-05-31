@@ -29,6 +29,7 @@ import PresencialFAB from "./components/PresencialFAB";
 import MobileBottomNav, { type MobileTab } from "./components/MobileBottomNav";
 import HamburgerPanel from "./components/HamburgerPanel";
 import { useMediaQuery } from "./hooks/useMediaQuery";
+import { usePolling } from "./hooks/usePolling";
 
 const OWNER_SESSION_KEY = "barbearia-calendar-owner-session";
 
@@ -359,6 +360,19 @@ function App() {
       cancelled = true;
     };
   }, [ownerSession]);
+
+  // Mantém os agendamentos atualizados sem precisar dar F5. Roda em paralelo à
+  // carga inicial acima (que faz normalização/presencial/expiração só 1x).
+  // Aqui é SÓ buscar e setar os eventos. Pausa enquanto um modal de evento
+  // está aberto pra não sobrescrever o que o usuário está criando/editando.
+  usePolling(
+    async () => {
+      const evts = await getEvents();
+      setEvents(evts);
+    },
+    { intervalMs: 15000, enabled: !!ownerSession && !isModalOpen },
+    [ownerSession, isModalOpen],
+  );
 
   const handleViewChange = (newView: CalendarView) => {
     setView(newView);

@@ -111,6 +111,17 @@ function shouldAttachAdminToken(path: string, init: RequestInit) {
   );
 }
 
+export class ApiError extends Error {
+  status: number;
+  retryAfterMs: number;
+  constructor(status: number, message: string, retryAfterMs = 0) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const attachAdminToken =
     ADMIN_API_TOKEN && shouldAttachAdminToken(path, init);
@@ -127,7 +138,18 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     },
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((body as any)?.error ?? `HTTP ${res.status}`);
+  if (!res.ok) {
+    const retryAfterRaw = Number(res.headers.get("Retry-After") ?? 0);
+    const retryAfterMs =
+      Number.isFinite(retryAfterRaw) && retryAfterRaw > 0
+        ? retryAfterRaw * 1000
+        : 0;
+    throw new ApiError(
+      res.status,
+      (body as any)?.error ?? `HTTP ${res.status}`,
+      retryAfterMs,
+    );
+  }
   return body as T;
 }
 

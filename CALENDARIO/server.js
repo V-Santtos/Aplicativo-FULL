@@ -114,8 +114,14 @@ function getRateLimitPolicy(request) {
   }
   if (method === "POST" && path === "/whatsapp/events")
     return { max: 30, label: "whatsapp-webhook" };
-  if (path.startsWith("/whatsapp/"))
-    return { max: 20, label: "whatsapp-admin" };
+  if (path.startsWith("/whatsapp/")) {
+    // Leitura (polling do CRM) tem balde proprio e generoso para nao
+    // esgotar quando varias abas/o painel estao abertos.
+    if (method === "GET") return { max: 240, label: "whatsapp-read" };
+    // Escrita (enviar, marcar como lida) fica num balde separado, modesto,
+    // pra que o polling de leitura NUNCA consiga starvar o envio.
+    return { max: 40, label: "whatsapp-write" };
+  }
 
   const adminWriteMethods = ["POST", "PUT", "PATCH", "DELETE"];
   if (adminWriteMethods.includes(method))
