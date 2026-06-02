@@ -135,7 +135,11 @@ export function Toaster() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed bottom-[88px] left-1/2 z-[60] flex w-full max-w-sm -translate-x-1/2 flex-col items-center gap-2 px-4 md:bottom-8">
+    <div
+      className="pointer-events-none fixed z-[60] flex flex-col items-end gap-2
+                    bottom-[104px] right-[84px] left-4 max-w-[calc(100vw-100px)]
+                    md:bottom-[130px] md:right-[185px] md:left-auto md:max-w-xs"
+    >
       <AnimatePresence initial={false}>
         {items.map((item) => (
           <ToastCard key={item.id} item={item} onDismiss={dismiss} />
