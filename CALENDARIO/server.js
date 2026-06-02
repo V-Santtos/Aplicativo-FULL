@@ -460,6 +460,7 @@ function extractInboundEvent(body) {
       rawMessage.from ??
       phone,
     name: (() => {
+      if (direction !== "inbound") return null;
       const candidate =
         payload.name ?? payload.NomeWpp ?? rawContact.profile?.name ?? null;
       if (candidate == null) return null;
