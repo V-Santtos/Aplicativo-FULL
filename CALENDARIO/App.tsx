@@ -26,6 +26,7 @@ import {
   getAgendaConfig,
 } from "./services/calendarApi";
 import PresencialFAB from "./components/PresencialFAB";
+import { toast, Toaster } from "./components/Toast";
 import MobileBottomNav, { type MobileTab } from "./components/MobileBottomNav";
 import HamburgerPanel from "./components/HamburgerPanel";
 import { useMediaQuery } from "./hooks/useMediaQuery";
@@ -605,8 +606,8 @@ function App() {
         getAgendaConfig(prof.id),
       ]);
       if (!slots.length) {
-        window.alert(
-          `A API respondeu, mas nao ha horario disponivel hoje (${today}) para bloquear para ${prof.name}.`,
+        toast.warning(
+          `Barbearia fechada hoje — não há horário disponível para ${prof.name}.`,
         );
         return;
       }
@@ -633,8 +634,8 @@ function App() {
         "Erro no FAB presencial ao consultar/criar agendamento:",
         err,
       );
-      window.alert(
-        "Erro ao registrar atendimento presencial. Verifique se a API da porta 3333 esta ativa.",
+      toast.error(
+        "Erro ao registrar atendimento presencial. Verifique se a API (porta 3333) está ativa.",
       );
     } finally {
       setPresencialLoading(false);
@@ -872,7 +873,7 @@ function App() {
             professional={settingsProfessional}
             onClose={() => setSettingsProfessional(null)}
           />
-
+          <Toaster />
           <PresencialFAB
             professionals={professionals}
             presencialIds={presencialIds}
